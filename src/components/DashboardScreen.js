@@ -16,8 +16,8 @@ function DashboardScreen({ userName }) {
   const [hasMeals, setHasMeals] = useState(false);
   const [dailyTotals, setDailyTotals] = useState({
     totalKcalIngested: 0,
-    totalKcalResting: 250,
-    totalKcalActivity: 100,
+    totalKcalResting: 0,
+    totalKcalActivity: 0,
     totalKcalBalance: 0
   });
 
@@ -129,7 +129,8 @@ function DashboardScreen({ userName }) {
         ...prev,
         totalKcalIngested,
         totalKcalResting,
-        totalKcalBalance: totalKcalIngested - totalKcalResting - prev.totalKcalActivity
+        totalKcalActivity: 0,
+        totalKcalBalance: totalKcalIngested - totalKcalResting
       }));
       
       setHasMeals(meals.length > 0);
