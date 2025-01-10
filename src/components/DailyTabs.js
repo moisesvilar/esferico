@@ -33,7 +33,7 @@ function TabPanel({ children, value, index }) {
   );
 }
 
-function DailyTabs({ currentDate, onAddFood }) {
+function DailyTabs({ currentDate, onAddFood, onEditFood }) {
   const [tabIndex, setTabIndex] = useState(0);
   const [meals, setMeals] = useState([]);
   const [mealToDelete, setMealToDelete] = useState(null);
@@ -113,8 +113,13 @@ function DailyTabs({ currentDate, onAddFood }) {
                     '&:not(:last-child)': {
                       borderBottom: '1px solid',
                       borderColor: 'divider'
+                    },
+                    cursor: 'pointer',
+                    '&:hover': {
+                      bgcolor: 'action.hover'
                     }
                   }}
+                  onClick={() => onEditFood(meal)}
                 >
                   <ListItemAvatar>
                     <Avatar 

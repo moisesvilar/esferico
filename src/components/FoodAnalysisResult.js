@@ -9,22 +9,32 @@ import {
 } from '@mui/material';
 import { Edit, Add, Check, Close } from '@mui/icons-material';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, setDoc, doc } from 'firebase/firestore';
 import { auth, storage, db } from '../config/firebase';
 
-function FoodAnalysisResult({ analysisData, selectedImage, currentDate, onCancel, onSuccess }) {
-  const [imageUrl, setImageUrl] = useState('');
+function FoodAnalysisResult({ 
+  analysisData, 
+  selectedImage, 
+  currentDate, 
+  onCancel, 
+  onSuccess,
+  isEditing = false,
+  imageUrl = null 
+}) {
   const [plateData, setPlateData] = useState(analysisData);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(imageUrl);
 
   useEffect(() => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setImageUrl(e.target.result);
-    };
-    reader.readAsDataURL(selectedImage);
-  }, [selectedImage]);
+    if (selectedImage && !imageUrl) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setPreviewUrl(e.target.result);
+      };
+      reader.readAsDataURL(selectedImage);
+    }
+  }, [selectedImage, imageUrl]);
 
   const handleEditIngredient = (name) => {
     console.log(`editar manualmente para el ingrediente ${name}`);
@@ -53,12 +63,15 @@ function FoodAnalysisResult({ analysisData, selectedImage, currentDate, onCancel
     setError(null);
 
     try {
-      // 1. Subir imagen a Firebase Storage
-      const storageRef = ref(storage, `plates/${auth.currentUser.uid}/${Date.now()}.jpg`);
-      const imageSnapshot = await uploadBytes(storageRef, selectedImage);
-      const imageDownloadUrl = await getDownloadURL(imageSnapshot.ref);
+      let finalImageUrl = imageUrl;
 
-      // 2. Guardar datos en Firestore
+      // Si hay una imagen nueva, la subimos
+      if (selectedImage) {
+        const storageRef = ref(storage, `plates/${auth.currentUser.uid}/${Date.now()}.jpg`);
+        const imageSnapshot = await uploadBytes(storageRef, selectedImage);
+        finalImageUrl = await getDownloadURL(imageSnapshot.ref);
+      }
+
       const plateDoc = {
         date: currentDate.toISOString(),
         description: plateData.description || '',
@@ -75,12 +88,20 @@ function FoodAnalysisResult({ analysisData, selectedImage, currentDate, onCancel
           carbohydrates_weight: Number(component.carbohydrates_weight) || 0,
           fats_weight: Number(component.fats_weight) || 0
         })),
-        imageUrl: imageDownloadUrl,
+        imageUrl: finalImageUrl,
         userId: auth.currentUser.uid,
-        createdAt: serverTimestamp()
+        updatedAt: serverTimestamp()
       };
 
-      await addDoc(collection(db, 'plates'), plateDoc);
+      if (isEditing) {
+        await setDoc(doc(db, 'plates', plateData.id), plateDoc, { merge: true });
+      } else {
+        await addDoc(collection(db, 'plates'), {
+          ...plateDoc,
+          createdAt: serverTimestamp()
+        });
+      }
+
       onSuccess();
     } catch (error) {
       console.error('Error saving plate:', error);
@@ -98,7 +119,7 @@ function FoodAnalysisResult({ analysisData, selectedImage, currentDate, onCancel
           sx={{ 
             width: '100%',
             height: '100px',
-            backgroundImage: `url(${imageUrl})`,
+            backgroundImage: `url(${previewUrl})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             margin: 0,

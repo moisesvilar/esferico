@@ -20,6 +20,7 @@ function DashboardScreen({ userName }) {
     totalKcalActivity: 0,
     totalKcalBalance: 0
   });
+  const [editingMeal, setEditingMeal] = useState(null);
 
   const formatDate = (date) => {
     const today = new Date();
@@ -165,6 +166,29 @@ function DashboardScreen({ userName }) {
     fetchDailyMeals(); // Recargar datos
   }, [fetchDailyMeals]);
 
+  const handleEditFood = (meal) => {
+    setEditingMeal(meal);
+  };
+
+  // Si estamos editando una comida, mostramos FoodAnalysisResult
+  if (editingMeal) {
+    return (
+      <FoodAnalysisResult 
+        analysisData={editingMeal}
+        selectedImage={null} // No necesitamos imagen nueva, usamos la URL existente
+        currentDate={currentDate}
+        onCancel={() => setEditingMeal(null)}
+        onSuccess={() => {
+          setEditingMeal(null);
+          fetchDailyMeals();
+        }}
+        isEditing={true}
+        imageUrl={editingMeal.imageUrl}
+      />
+    );
+  }
+
+  // Si estamos añadiendo una comida nueva
   if (analysisData && selectedImage) {
     return (
       <FoodAnalysisResult 
@@ -176,6 +200,7 @@ function DashboardScreen({ userName }) {
           setSelectedImage(null);
         }}
         onSuccess={handleFoodAdded}
+        isEditing={false}
       />
     );
   }
@@ -254,6 +279,7 @@ function DashboardScreen({ userName }) {
         <DailyTabs 
           currentDate={currentDate}
           onAddFood={() => setIsAddFoodOpen(true)}
+          onEditFood={handleEditFood}
         />
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
