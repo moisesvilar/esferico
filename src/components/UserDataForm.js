@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Box, Button, FormControl, InputLabel, MenuItem, Select, TextField, Typography } from '@mui/material';
+import { useState, useEffect } from 'react';
+import { Box, Button, FormControl, InputLabel, MenuItem, Select, TextField, Typography, Divider } from '@mui/material';
 
 function UserDataForm({ onSubmit, isLoading }) {
   const [formData, setFormData] = useState({
@@ -8,6 +8,29 @@ function UserDataForm({ onSubmit, isLoading }) {
     peso: '',
     altura: ''
   });
+  const [bmr, setBmr] = useState(0);
+
+  // Función para calcular BMR
+  const calculateBMR = (weight, height, age, sex) => {
+    if (!weight || !height || !age || !sex) return 0;
+    
+    // Fórmula base común
+    const base = (10 * weight) + (6.25 * height) - (5 * age);
+    
+    // Ajuste según sexo
+    return Math.round(sex === 'hombre' ? base + 5 : base - 161);
+  };
+
+  // Recalcular BMR cuando cambian los datos
+  useEffect(() => {
+    const newBmr = calculateBMR(
+      Number(formData.peso),
+      Number(formData.altura),
+      Number(formData.edad),
+      formData.sexo
+    );
+    setBmr(newBmr);
+  }, [formData]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -19,7 +42,7 @@ function UserDataForm({ onSubmit, isLoading }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit(formData);
+    onSubmit({ ...formData, bmr });
   };
 
   return (
@@ -94,6 +117,20 @@ function UserDataForm({ onSubmit, isLoading }) {
         error={formData.altura !== '' && (formData.altura < 0 || formData.altura > 300)}
         helperText={formData.altura !== '' && (formData.altura < 0 || formData.altura > 300) ? "La altura debe estar entre 0 y 300 cm" : ""}
       />
+
+      <Divider sx={{ my: 2 }} />
+      
+      <Box sx={{ bgcolor: '#f5f5f5', p: 2, borderRadius: 1 }}>
+        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+          Metabolismo Basal (BMR)
+        </Typography>
+        <Typography variant="h6">
+          {bmr} kcal/día
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          Calorías que tu cuerpo consume en reposo
+        </Typography>
+      </Box>
 
       <Button
         type="submit"

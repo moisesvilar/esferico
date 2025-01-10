@@ -60,36 +60,33 @@ function DashboardScreen({ userName }) {
 
   // Función para calcular las kcal en reposo según el día
   const calculateRestingKcal = (date, dailyBMR) => {
-    // Si no hay BMR, retornamos 0
     if (!dailyBMR) return 0;
 
+    console.log('BMR del usuario:', dailyBMR, 'kcal/día');
+
+    // Usamos Intl.DateTimeFormat para obtener la hora correcta en Madrid
+    const madridFormatter = new Intl.DateTimeFormat('es-ES', {
+      timeZone: 'Europe/Madrid',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+
     const now = new Date();
-    const targetDate = new Date(date);
+    const madridTime = madridFormatter.format(now);
+    console.log('Fecha y hora actual (Madrid):', madridTime);
 
-    // Ajustamos ambas fechas al inicio del día en la zona horaria de Madrid
-    const madridNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-    const madridTarget = new Date(targetDate.getTime() + 2 * 60 * 60 * 1000);
-    
-    // Comparamos solo las fechas (sin tiempo)
-    const nowDate = new Date(madridNow.getFullYear(), madridNow.getMonth(), madridNow.getDate());
-    const targetDateOnly = new Date(madridTarget.getFullYear(), madridTarget.getMonth(), madridTarget.getDate());
+    // Extraemos las horas y minutos de la fecha formateada
+    const [, time] = madridTime.split(', ');
+    const [hours, minutes] = time.split(':').map(Number);
+    const hoursElapsed = hours + (minutes / 60);
 
-    // Para días futuros
-    if (targetDateOnly > nowDate) {
-      return 0;
-    }
+    console.log('Horas transcurridas:', hoursElapsed.toFixed(2), 'horas');
 
-    // Para días pasados
-    if (targetDateOnly < nowDate) {
-      return dailyBMR;
-    }
-
-    // Para el día actual
     const kcalPerHour = dailyBMR / 24;
-    const currentHour = madridNow.getHours();
-    const currentMinutes = madridNow.getMinutes();
-    const hoursElapsed = currentHour + (currentMinutes / 60);
-
     return Math.round(kcalPerHour * hoursElapsed);
   };
 
