@@ -1,21 +1,12 @@
 import { useState } from 'react';
 import { Box, Button, FormControl, InputLabel, MenuItem, Select, TextField, Typography } from '@mui/material';
 
-const activityLevels = {
-  sedentario: 'Sedentario (poco o ningún ejercicio)',
-  ligero: 'Ligero (ejercicio 1-3 días/semana)',
-  moderado: 'Moderado (ejercicio 3-5 días/semana)',
-  activo: 'Muy activo (ejercicio 6-7 días/semana)',
-  intenso: 'Intenso (ejercicio muy intenso diariamente)'
-};
-
 function UserDataForm({ onSubmit, isLoading }) {
   const [formData, setFormData] = useState({
     sexo: '',
     edad: '',
     peso: '',
-    altura: '',
-    nivelActividad: ''
+    altura: ''
   });
 
   const handleChange = (e) => {
@@ -57,10 +48,12 @@ function UserDataForm({ onSubmit, isLoading }) {
         name="edad"
         value={formData.edad}
         onChange={handleChange}
-        inputProps={{ 
-          min: 0, 
-          max: 120,
-          step: "1"
+        slotProps={{
+          input: {
+            min: 0, 
+            max: 120,
+            step: "1"
+          }
         }}
         error={formData.edad !== '' && (formData.edad < 0 || formData.edad > 120)}
         helperText={formData.edad !== '' && (formData.edad < 0 || formData.edad > 120) ? "La edad debe estar entre 0 y 120" : ""}
@@ -73,10 +66,12 @@ function UserDataForm({ onSubmit, isLoading }) {
         name="peso"
         value={formData.peso}
         onChange={handleChange}
-        inputProps={{ 
-          min: 0, 
-          max: 500,
-          step: "0.1"
+        slotProps={{
+          input: {
+            min: 0, 
+            max: 500,
+            step: "0.1"
+          }
         }}
         error={formData.peso !== '' && (formData.peso < 0 || formData.peso > 500)}
         helperText={formData.peso !== '' && (formData.peso < 0 || formData.peso > 500) ? "El peso debe estar entre 0 y 500 kg" : ""}
@@ -89,28 +84,16 @@ function UserDataForm({ onSubmit, isLoading }) {
         name="altura"
         value={formData.altura}
         onChange={handleChange}
-        inputProps={{ 
-          min: 0, 
-          max: 300,
-          step: "1"
+        slotProps={{
+          input: {
+            min: 0, 
+            max: 300,
+            step: "1"
+          }
         }}
         error={formData.altura !== '' && (formData.altura < 0 || formData.altura > 300)}
         helperText={formData.altura !== '' && (formData.altura < 0 || formData.altura > 300) ? "La altura debe estar entre 0 y 300 cm" : ""}
       />
-
-      <FormControl fullWidth required>
-        <InputLabel>Nivel de actividad</InputLabel>
-        <Select
-          name="nivelActividad"
-          value={formData.nivelActividad}
-          label="Nivel de actividad"
-          onChange={handleChange}
-        >
-          {Object.entries(activityLevels).map(([value, label]) => (
-            <MenuItem key={value} value={value}>{label}</MenuItem>
-          ))}
-        </Select>
-      </FormControl>
 
       <Button
         type="submit"

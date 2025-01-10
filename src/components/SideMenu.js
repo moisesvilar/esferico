@@ -63,7 +63,7 @@ function SideMenu({ isOpen, onClose }) {
     <>
       <Drawer anchor="left" open={isOpen} onClose={onClose}>
         <List sx={{ width: 250 }}>
-          <ListItem button onClick={handleUpdateDataClick}>
+          <ListItem onClick={handleUpdateDataClick} sx={{ cursor: 'pointer' }}>
             <ListItemIcon>
               <Person />
             </ListItemIcon>
@@ -72,7 +72,7 @@ function SideMenu({ isOpen, onClose }) {
           
           <Divider />
           
-          <ListItem button onClick={handleLogout}>
+          <ListItem onClick={handleLogout} sx={{ cursor: 'pointer' }}>
             <ListItemIcon>
               <Logout />
             </ListItemIcon>
