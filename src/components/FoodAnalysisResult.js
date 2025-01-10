@@ -25,6 +25,7 @@ function FoodAnalysisResult({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(imageUrl);
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
 
   useEffect(() => {
     if (selectedImage && !imageUrl) {
@@ -111,6 +112,29 @@ function FoodAnalysisResult({
     }
   };
 
+  const handleDescriptionClick = () => {
+    if (isEditing) {
+      setIsEditingDescription(true);
+    }
+  };
+
+  const handleDescriptionChange = (e) => {
+    setPlateData(prev => ({
+      ...prev,
+      description: e.target.value
+    }));
+  };
+
+  const handleDescriptionBlur = () => {
+    setIsEditingDescription(false);
+  };
+
+  const handleDescriptionKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      setIsEditingDescription(false);
+    }
+  };
+
   return (
     <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
@@ -122,17 +146,57 @@ function FoodAnalysisResult({
             backgroundImage: `url(${previewUrl})`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            margin: 0,
-            padding: 0,
             borderRadius: 1,
             boxShadow: 1
           }}
         />
 
         {/* Descripción del plato */}
-        <Typography variant="body1" align="center">
-          {analysisData.description}
-        </Typography>
+        {isEditingDescription ? (
+          <TextField
+            autoFocus
+            fullWidth
+            value={plateData.description}
+            onChange={handleDescriptionChange}
+            onBlur={handleDescriptionBlur}
+            onKeyPress={handleDescriptionKeyPress}
+            variant="standard"
+            sx={{ 
+              '& input': { 
+                textAlign: 'center',
+                fontSize: '1rem',
+                fontWeight: 'normal'
+              }
+            }}
+          />
+        ) : (
+          <Typography 
+            variant="body1" 
+            align="center"
+            onClick={handleDescriptionClick}
+            sx={{ 
+              cursor: isEditing ? 'pointer' : 'default',
+              '&:hover': isEditing ? {
+                bgcolor: 'action.hover',
+                borderRadius: 1,
+                px: 1
+              } : {}
+            }}
+          >
+            {plateData.description}
+            {isEditing && (
+              <Edit 
+                fontSize="small" 
+                sx={{ 
+                  ml: 1, 
+                  verticalAlign: 'middle',
+                  color: 'text.secondary',
+                  fontSize: '0.8rem'
+                }} 
+              />
+            )}
+          </Typography>
+        )}
 
         {/* Lista de ingredientes */}
         <Stack spacing={2}>
