@@ -12,10 +12,11 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, storage, db } from '../config/firebase';
 
-function FoodAnalysisResult({ analysisData, selectedImage, onCancel, currentDate }) {
+function FoodAnalysisResult({ analysisData, selectedImage, currentDate, onCancel, onSuccess }) {
   const [imageUrl, setImageUrl] = useState('');
   const [plateData, setPlateData] = useState(analysisData);
-  const [isUploading, setIsUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const reader = new FileReader();
@@ -47,10 +48,11 @@ function FoodAnalysisResult({ analysisData, selectedImage, onCancel, currentDate
     });
   };
 
-  const handleConfirm = async () => {
-    try {
-      setIsUploading(true);
+  const handleSave = async () => {
+    setIsSaving(true);
+    setError(null);
 
+    try {
       // 1. Subir imagen a Firebase Storage
       const storageRef = ref(storage, `plates/${auth.currentUser.uid}/${Date.now()}.jpg`);
       const imageSnapshot = await uploadBytes(storageRef, selectedImage);
@@ -58,7 +60,7 @@ function FoodAnalysisResult({ analysisData, selectedImage, onCancel, currentDate
 
       // 2. Guardar datos en Firestore
       const plateDoc = {
-        date: currentDate.toISOString(), // Convertimos la fecha a string ISO
+        date: currentDate.toISOString(),
         description: plateData.description || '',
         total_kcal: Number(plateData.total_kcal) || 0,
         total_weight: Number(plateData.total_weight) || 0,
@@ -78,16 +80,13 @@ function FoodAnalysisResult({ analysisData, selectedImage, onCancel, currentDate
         createdAt: serverTimestamp()
       };
 
-      console.log('Saving plate doc:', plateDoc); // Debug
-
       await addDoc(collection(db, 'plates'), plateDoc);
-      onCancel(); // Volvemos al dashboard
-
+      onSuccess();
     } catch (error) {
       console.error('Error saving plate:', error);
-      console.error('Error details:', error.code, error.message);
+      setError('Error al guardar los datos');
     } finally {
-      setIsUploading(false);
+      setIsSaving(false);
     }
   };
 
@@ -197,22 +196,27 @@ function FoodAnalysisResult({ analysisData, selectedImage, onCancel, currentDate
           </Stack>
         </Paper>
 
-        {/* Botones de acción */}
+        {error && (
+          <Typography color="error" align="center">
+            {error}
+          </Typography>
+        )}
+
         <Stack direction="row" spacing={2}>
           <Button
             variant="contained"
             startIcon={<Check />}
-            onClick={handleConfirm}
-            disabled={isUploading}
+            onClick={handleSave}
+            disabled={isSaving}
             fullWidth
           >
-            {isUploading ? 'Guardando...' : 'Confirmar'}
+            {isSaving ? 'Guardando...' : 'Confirmar'}
           </Button>
           <Button
             variant="outlined"
             startIcon={<Close />}
             onClick={onCancel}
-            disabled={isUploading}
+            disabled={isSaving}
             fullWidth
           >
             Cancelar

@@ -1,6 +1,6 @@
 import { Box, Button, Container, Paper, Typography, IconButton } from '@mui/material';
 import { ChevronLeft, ChevronRight, Add } from '@mui/icons-material';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import AddFoodScreen from './AddFoodScreen';
 import FoodAnalysisResult from './FoodAnalysisResult';
 import DailyTabs from './DailyTabs';
@@ -16,8 +16,8 @@ function DashboardScreen({ userName }) {
   const [hasMeals, setHasMeals] = useState(false);
   const [dailyTotals, setDailyTotals] = useState({
     totalKcalIngested: 0,
-    totalKcalResting: 250, // Por ahora hardcodeado
-    totalKcalActivity: 100, // Por ahora hardcodeado
+    totalKcalResting: 250,
+    totalKcalActivity: 100,
     totalKcalBalance: 0
   });
 
@@ -53,18 +53,12 @@ function DashboardScreen({ userName }) {
     setCurrentDate(newDate);
   };
 
-  const handleImageAnalyzed = (image, data) => {
-    setSelectedImage(image);
-    setAnalysisData(data);
-  };
-
-  // Función para calcular las kcal en reposo según el día
-  const calculateRestingKcal = (date, dailyBMR) => {
+  // Envolvemos calculateRestingKcal en su propio useCallback
+  const calculateRestingKcal = useCallback((date, dailyBMR) => {
     if (!dailyBMR) return 0;
 
     console.log('BMR del usuario:', dailyBMR, 'kcal/día');
 
-    // Usamos Intl.DateTimeFormat para obtener la hora correcta en Madrid
     const madridFormatter = new Intl.DateTimeFormat('es-ES', {
       timeZone: 'Europe/Madrid',
       year: 'numeric',
@@ -79,7 +73,6 @@ function DashboardScreen({ userName }) {
     const madridTime = madridFormatter.format(now);
     console.log('Fecha y hora actual (Madrid):', madridTime);
 
-    // Extraemos las horas y minutos de la fecha formateada
     const [, time] = madridTime.split(', ');
     const [hours, minutes] = time.split(':').map(Number);
     const hoursElapsed = hours + (minutes / 60);
@@ -88,7 +81,7 @@ function DashboardScreen({ userName }) {
 
     const kcalPerHour = dailyBMR / 24;
     return Math.round(kcalPerHour * hoursElapsed);
-  };
+  }, []);
 
   // Efecto para cargar los datos del usuario y calcular el metabolismo
   const [userData, setUserData] = useState(null);
@@ -111,46 +104,52 @@ function DashboardScreen({ userName }) {
     fetchUserData();
   }, []);
 
-  // Modificamos el efecto existente para incluir el cálculo de BMR
+  // Envolvemos fetchDailyMeals en useCallback
+  const fetchDailyMeals = useCallback(async () => {
+    if (!auth.currentUser || !userData) return;
+
+    try {
+      const start = startOfDay(currentDate).toISOString();
+      const end = endOfDay(currentDate).toISOString();
+      
+      const mealsQuery = query(
+        collection(db, 'plates'),
+        where('userId', '==', auth.currentUser.uid),
+        where('date', '>=', start),
+        where('date', '<=', end)
+      );
+
+      const snapshot = await getDocs(mealsQuery);
+      const meals = snapshot.docs.map(doc => doc.data());
+      
+      const totalKcalIngested = meals.reduce((sum, meal) => sum + (meal.total_kcal || 0), 0);
+      const totalKcalResting = calculateRestingKcal(currentDate, userData.bmr);
+      
+      setDailyTotals(prev => ({
+        ...prev,
+        totalKcalIngested,
+        totalKcalResting,
+        totalKcalBalance: totalKcalIngested - totalKcalResting - prev.totalKcalActivity
+      }));
+      
+      setHasMeals(meals.length > 0);
+    } catch (error) {
+      console.error('Error checking meals:', error);
+    }
+  }, [currentDate, userData, calculateRestingKcal]);
+
   useEffect(() => {
-    const fetchDailyMeals = async () => {
-      if (!auth.currentUser || !userData) return;
-
-      try {
-        const start = startOfDay(currentDate).toISOString();
-        const end = endOfDay(currentDate).toISOString();
-        
-        const mealsQuery = query(
-          collection(db, 'plates'),
-          where('userId', '==', auth.currentUser.uid),
-          where('date', '>=', start),
-          where('date', '<=', end)
-        );
-
-        const snapshot = await getDocs(mealsQuery);
-        const meals = snapshot.docs.map(doc => doc.data());
-        
-        const totalKcalIngested = meals.reduce((sum, meal) => sum + (meal.total_kcal || 0), 0);
-
-        const totalKcalResting = calculateRestingKcal(currentDate, userData.bmr);
-        
-        setDailyTotals(prev => ({
-          ...prev,
-          totalKcalIngested,
-          totalKcalResting,
-          totalKcalBalance: totalKcalIngested - totalKcalResting - prev.totalKcalActivity
-        }));
-        
-        setHasMeals(meals.length > 0);
-      } catch (error) {
-        console.error('Error checking meals:', error);
-      }
-    };
-
     if (auth.currentUser) {
       fetchDailyMeals();
     }
-  }, [currentDate, userData]);
+  }, [fetchDailyMeals]); // Ahora solo depende de fetchDailyMeals
+
+  const handleFoodAdded = useCallback(() => {
+    setAnalysisData(null);
+    setSelectedImage(null);
+    setIsAddFoodOpen(false); // Cerrar el modal
+    fetchDailyMeals(); // Recargar datos
+  }, [fetchDailyMeals]);
 
   if (analysisData && selectedImage) {
     return (
@@ -162,6 +161,7 @@ function DashboardScreen({ userName }) {
           setAnalysisData(null);
           setSelectedImage(null);
         }}
+        onSuccess={handleFoodAdded}
       />
     );
   }
@@ -280,7 +280,11 @@ function DashboardScreen({ userName }) {
       <AddFoodScreen 
         open={isAddFoodOpen}
         onClose={() => setIsAddFoodOpen(false)}
-        onImageAnalyzed={handleImageAnalyzed}
+        onImageAnalyzed={(image, data) => {
+          setSelectedImage(image);
+          setAnalysisData(data);
+          setIsAddFoodOpen(false); // Cerrar el modal al recibir el análisis
+        }}
       />
     </Container>
   );
