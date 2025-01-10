@@ -26,6 +26,7 @@ function FoodAnalysisResult({
   const [error, setError] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(imageUrl);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [editingIngredientIndex, setEditingIngredientIndex] = useState(null);
 
   useEffect(() => {
     if (selectedImage && !imageUrl) {
@@ -135,6 +136,30 @@ function FoodAnalysisResult({
     }
   };
 
+  const handleIngredientNameClick = (index) => {
+    if (isEditing) {
+      setEditingIngredientIndex(index);
+    }
+  };
+
+  const handleIngredientNameChange = (index, newName) => {
+    setPlateData(prev => {
+      const newData = { ...prev };
+      newData.components[index].name = newName;
+      return newData;
+    });
+  };
+
+  const handleIngredientNameBlur = () => {
+    setEditingIngredientIndex(null);
+  };
+
+  const handleIngredientNameKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      setEditingIngredientIndex(null);
+    }
+  };
+
   return (
     <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
@@ -203,8 +228,51 @@ function FoodAnalysisResult({
           {plateData.components.map((ingredient, index) => (
             <Paper key={index} elevation={1} sx={{ p: 2 }}>
               <Stack spacing={2}>
-                <Typography>{ingredient.name}</Typography>
-                
+                {editingIngredientIndex === index ? (
+                  <TextField
+                    autoFocus
+                    fullWidth
+                    value={ingredient.name}
+                    onChange={(e) => handleIngredientNameChange(index, e.target.value)}
+                    onBlur={handleIngredientNameBlur}
+                    onKeyPress={handleIngredientNameKeyPress}
+                    variant="standard"
+                    sx={{ 
+                      '& input': { 
+                        fontSize: '1rem',
+                        fontWeight: 'normal'
+                      }
+                    }}
+                  />
+                ) : (
+                  <Typography 
+                    onClick={() => handleIngredientNameClick(index)}
+                    sx={{ 
+                      cursor: isEditing ? 'pointer' : 'default',
+                      '&:hover': isEditing ? {
+                        bgcolor: 'action.hover',
+                        borderRadius: 1,
+                        px: 1
+                      } : {},
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between'
+                    }}
+                  >
+                    {ingredient.name}
+                    {isEditing && (
+                      <Edit 
+                        fontSize="small" 
+                        sx={{ 
+                          ml: 1,
+                          color: 'text.secondary',
+                          fontSize: '0.8rem'
+                        }} 
+                      />
+                    )}
+                  </Typography>
+                )}
+
                 <Stack direction="row" spacing={2}>
                   <Box sx={{ flex: 1 }}>
                     <TextField
