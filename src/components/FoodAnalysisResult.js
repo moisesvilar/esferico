@@ -67,11 +67,14 @@ function FoodAnalysisResult({
     try {
       let finalImageUrl = imageUrl;
 
-      // Si hay una imagen nueva, la subimos
+      // Si hay una imagen nueva (ya sea por edición o nueva comida)
       if (selectedImage) {
         const storageRef = ref(storage, `plates/${auth.currentUser.uid}/${Date.now()}.jpg`);
         const imageSnapshot = await uploadBytes(storageRef, selectedImage);
         finalImageUrl = await getDownloadURL(imageSnapshot.ref);
+      } else {
+        // Si estamos editando, usamos la URL que ya está en plateData
+        finalImageUrl = plateData.imageUrl;
       }
 
       const plateDoc = {
@@ -160,11 +163,52 @@ function FoodAnalysisResult({
     }
   };
 
+  const handleImageClick = () => {
+    if (isEditing) {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      
+      input.onchange = async (e) => {
+        if (e.target.files && e.target.files[0]) {
+          const newImage = e.target.files[0];
+          
+          try {
+            // Mostrar preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+              setPreviewUrl(e.target.result);
+            };
+            reader.readAsDataURL(newImage);
+
+            // Subir nueva imagen
+            const storageRef = ref(storage, `plates/${auth.currentUser.uid}/${Date.now()}.jpg`);
+            const imageSnapshot = await uploadBytes(storageRef, newImage);
+            const newImageUrl = await getDownloadURL(imageSnapshot.ref);
+
+            // Actualizar URL en plateData
+            setPlateData(prev => ({
+              ...prev,
+              imageUrl: newImageUrl
+            }));
+
+          } catch (error) {
+            console.error('Error updating image:', error);
+            setError('Error al actualizar la imagen');
+          }
+        }
+      };
+      
+      input.click();
+    }
+  };
+
   return (
     <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
         {/* Imagen */}
         <Box 
+          onClick={handleImageClick}
           sx={{ 
             width: '100%',
             height: '100px',
@@ -172,7 +216,25 @@ function FoodAnalysisResult({
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             borderRadius: 1,
-            boxShadow: 1
+            boxShadow: 1,
+            cursor: isEditing ? 'pointer' : 'default',
+            position: 'relative',
+            '&:hover': isEditing ? {
+              '&::after': {
+                content: '"Cambiar imagen"',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                color: 'white',
+                borderRadius: 1
+              }
+            } : {}
           }}
         />
 
