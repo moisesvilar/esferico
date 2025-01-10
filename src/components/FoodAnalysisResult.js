@@ -5,9 +5,10 @@ import {
   Typography, 
   TextField,
   Stack,
-  Paper
+  Paper,
+  IconButton
 } from '@mui/material';
-import { Edit, Add, Check, Close } from '@mui/icons-material';
+import { Edit, Add, Check, Close, Delete } from '@mui/icons-material';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp, setDoc, doc } from 'firebase/firestore';
 import { auth, storage, db } from '../config/firebase';
@@ -203,6 +204,24 @@ function FoodAnalysisResult({
     }
   };
 
+  const handleDeleteIngredient = (index) => {
+    if (!isEditing) return;
+
+    setPlateData(prev => {
+      const newData = { ...prev };
+      newData.components = newData.components.filter((_, i) => i !== index);
+      
+      // Recalcular totales
+      newData.total_weight = newData.components.reduce((sum, ing) => sum + (ing.weight || 0), 0);
+      newData.total_kcal = newData.components.reduce((sum, ing) => sum + (ing.kcal || 0), 0);
+      newData.total_protein_weight = newData.components.reduce((sum, ing) => sum + (ing.protein_weight || 0), 0);
+      newData.total_carbohydrates_weight = newData.components.reduce((sum, ing) => sum + (ing.carbohydrates_weight || 0), 0);
+      newData.total_fats_weight = newData.components.reduce((sum, ing) => sum + (ing.fats_weight || 0), 0);
+      
+      return newData;
+    });
+  };
+
   return (
     <Box sx={{ p: 3 }}>
       <Stack spacing={3}>
@@ -290,50 +309,69 @@ function FoodAnalysisResult({
           {plateData.components.map((ingredient, index) => (
             <Paper key={index} elevation={1} sx={{ p: 2 }}>
               <Stack spacing={2}>
-                {editingIngredientIndex === index ? (
-                  <TextField
-                    autoFocus
-                    fullWidth
-                    value={ingredient.name}
-                    onChange={(e) => handleIngredientNameChange(index, e.target.value)}
-                    onBlur={handleIngredientNameBlur}
-                    onKeyPress={handleIngredientNameKeyPress}
-                    variant="standard"
-                    sx={{ 
-                      '& input': { 
-                        fontSize: '1rem',
-                        fontWeight: 'normal'
-                      }
-                    }}
-                  />
-                ) : (
-                  <Typography 
-                    onClick={() => handleIngredientNameClick(index)}
-                    sx={{ 
-                      cursor: isEditing ? 'pointer' : 'default',
-                      '&:hover': isEditing ? {
-                        bgcolor: 'action.hover',
-                        borderRadius: 1,
-                        px: 1
-                      } : {},
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between'
-                    }}
-                  >
-                    {ingredient.name}
-                    {isEditing && (
-                      <Edit 
-                        fontSize="small" 
-                        sx={{ 
-                          ml: 1,
-                          color: 'text.secondary',
-                          fontSize: '0.8rem'
-                        }} 
-                      />
-                    )}
-                  </Typography>
-                )}
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}>
+                  {editingIngredientIndex === index ? (
+                    <TextField
+                      autoFocus
+                      fullWidth
+                      value={ingredient.name}
+                      onChange={(e) => handleIngredientNameChange(index, e.target.value)}
+                      onBlur={handleIngredientNameBlur}
+                      onKeyPress={handleIngredientNameKeyPress}
+                      variant="standard"
+                      sx={{ 
+                        '& input': { 
+                          fontSize: '1rem',
+                          fontWeight: 'normal'
+                        }
+                      }}
+                    />
+                  ) : (
+                    <Typography 
+                      onClick={() => handleIngredientNameClick(index)}
+                      sx={{ 
+                        cursor: isEditing ? 'pointer' : 'default',
+                        '&:hover': isEditing ? {
+                          bgcolor: 'action.hover',
+                          borderRadius: 1,
+                          px: 1
+                        } : {},
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                      }}
+                    >
+                      {ingredient.name}
+                      {isEditing && (
+                        <Edit 
+                          fontSize="small" 
+                          sx={{ 
+                            ml: 1,
+                            color: 'text.secondary',
+                            fontSize: '0.8rem'
+                          }} 
+                        />
+                      )}
+                    </Typography>
+                  )}
+                  
+                  {isEditing && (
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteIngredient(index);
+                      }}
+                      sx={{ ml: 1 }}
+                    >
+                      <Delete fontSize="small" />
+                    </IconButton>
+                  )}
+                </Box>
 
                 <Stack direction="row" spacing={2}>
                   <Box sx={{ flex: 1 }}>
@@ -386,25 +424,25 @@ function FoodAnalysisResult({
           <Stack spacing={1}>
             <Stack direction="row" spacing={2} justifyContent="space-evenly">
               <Stack alignItems="center">
-                <Typography>{analysisData.total_weight}g</Typography>
+                <Typography>{plateData.total_weight}g</Typography>
                 <Typography variant="caption">peso total</Typography>
               </Stack>
               <Stack alignItems="center">
-                <Typography>{analysisData.total_kcal} kcal</Typography>
+                <Typography>{plateData.total_kcal} kcal</Typography>
                 <Typography variant="caption">calorías totales</Typography>
               </Stack>
             </Stack>
             <Stack direction="row" spacing={2} justifyContent="space-between">
               <Stack alignItems="center">
-                <Typography variant="caption">{analysisData.total_protein_weight}g</Typography>
+                <Typography variant="caption">{plateData.total_protein_weight}g</Typography>
                 <Typography variant="caption">proteínas</Typography>
               </Stack>
               <Stack alignItems="center">
-                <Typography variant="caption">{analysisData.total_carbohydrates_weight}g</Typography>
+                <Typography variant="caption">{plateData.total_carbohydrates_weight}g</Typography>
                 <Typography variant="caption">carbohidratos</Typography>
               </Stack>
               <Stack alignItems="center">
-                <Typography variant="caption">{analysisData.total_fats_weight}g</Typography>
+                <Typography variant="caption">{plateData.total_fats_weight}g</Typography>
                 <Typography variant="caption">grasas</Typography>
               </Stack>
             </Stack>
