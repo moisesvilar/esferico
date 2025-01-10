@@ -17,44 +17,59 @@ import AnalyzingFood from './AnalyzingFood';
 
 function AddFoodScreen({ open, onClose, onImageAnalyzed }) {
   const [step, setStep] = useState('initial');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [error, setError] = useState(null);
 
-  const uploadImage = async (file) => {
-    const formData = new FormData();
-    formData.append('image', file);
+  const analyzeImageWithRetry = async (image, maxRetries = 5) => {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`Intento ${attempt} de ${maxRetries}...`);
+        
+        const formData = new FormData();
+        formData.append('image', image);
 
-    try {
-      const response = await fetch('https://hook.eu2.make.com/d2j15f81g7x85o1mfl2crku1ruulqzul', {
-        method: 'POST',
-        body: formData
-      });
+        const response = await fetch('https://hook.eu2.make.com/d2j15f81g7x85o1mfl2crku1ruulqzul', {
+          method: 'POST',
+          body: formData
+        });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const rawText = await response.text();
+        let cleanText = rawText
+          .replace(/```json\n/, '')
+          .replace(/\n```/, '')
+          .trim();
+
+        const data = JSON.parse(cleanText);
+        return data;
+        
+      } catch (error) {
+        console.error(`Error en intento ${attempt}:`, error);
+        
+        if (attempt === maxRetries) {
+          throw error; // Si es el último intento, propagamos el error
+        }
+        
+        // Esperar antes del siguiente intento (tiempo exponencial de espera)
+        const waitTime = Math.min(1000 * Math.pow(2, attempt), 10000); // máximo 10 segundos
+        await new Promise(resolve => setTimeout(resolve, waitTime));
       }
-
-      const rawText = await response.text();
-      let cleanText = rawText
-        .replace(/```json\n/, '')
-        .replace(/\n```/, '')
-        .trim();
-
-      const data = JSON.parse(cleanText);
-      return data;
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      throw error;
     }
   };
 
-  const handleImageSelected = async (file) => {
-    setStep('analyzing');
+  const handleImageSelected = async (image) => {
+    setIsAnalyzing(true);
     try {
-      const analysisData = await uploadImage(file);
-      onImageAnalyzed(file, analysisData);
-      onClose();
+      const data = await analyzeImageWithRetry(image);
+      onImageAnalyzed(image, data);
     } catch (error) {
-      console.error('Error processing image:', error);
-      setStep('error');
+      console.error('Error analyzing image after all retries:', error);
+      setError('Error al analizar la imagen. Por favor, inténtalo de nuevo.');
+    } finally {
+      setIsAnalyzing(false);
     }
   };
 
@@ -101,6 +116,31 @@ function AddFoodScreen({ open, onClose, onImageAnalyzed }) {
   };
 
   const renderContent = () => {
+    if (isAnalyzing) {
+      return (
+        <DialogContent>
+          <AnalyzingFood />
+        </DialogContent>
+      );
+    }
+
+    if (error) {
+      return (
+        <DialogContent>
+          <Typography color="error" align="center">
+            {error}
+          </Typography>
+          <Button 
+            onClick={() => setError(null)} 
+            fullWidth 
+            sx={{ mt: 2 }}
+          >
+            Intentar de nuevo
+          </Button>
+        </DialogContent>
+      );
+    }
+
     switch (step) {
       case 'photo':
         return (
@@ -131,22 +171,6 @@ function AddFoodScreen({ open, onClose, onImageAnalyzed }) {
               </Button>
             </DialogActions>
           </>
-        );
-
-      case 'analyzing':
-        return (
-          <DialogContent>
-            <AnalyzingFood />
-          </DialogContent>
-        );
-
-      case 'error':
-        return (
-          <DialogContent>
-            <Typography color="error" align="center">
-              Ha ocurrido un error al procesar la imagen
-            </Typography>
-          </DialogContent>
         );
 
       default: // 'initial'
