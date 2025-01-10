@@ -59,6 +59,19 @@ function DashboardScreen({ userName }) {
 
     console.log('BMR del usuario:', dailyBMR, 'kcal/día');
 
+    // Comparar fechas (sin tiempo)
+    const today = new Date();
+    const targetDate = new Date(date);
+    today.setHours(0, 0, 0, 0);
+    targetDate.setHours(0, 0, 0, 0);
+
+    // Si es un día pasado, devolver el BMR completo
+    if (targetDate < today) {
+      console.log('Día pasado - BMR completo:', dailyBMR);
+      return dailyBMR;
+    }
+
+    // Si es el día actual, calcular las kcal según las horas transcurridas
     const madridFormatter = new Intl.DateTimeFormat('es-ES', {
       timeZone: 'Europe/Madrid',
       year: 'numeric',
