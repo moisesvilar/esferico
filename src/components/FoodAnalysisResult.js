@@ -28,6 +28,15 @@ function FoodAnalysisResult({
   const [previewUrl, setPreviewUrl] = useState(imageUrl);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editingIngredientIndex, setEditingIngredientIndex] = useState(null);
+  const [originalValues] = useState(() => 
+    analysisData.components.map(component => ({
+      weight: component.weight,
+      kcal: component.kcal,
+      protein_weight: component.protein_weight,
+      carbohydrates_weight: component.carbohydrates_weight,
+      fats_weight: component.fats_weight
+    }))
+  );
 
   useEffect(() => {
     if (selectedImage && !imageUrl) {
@@ -50,12 +59,30 @@ function FoodAnalysisResult({
   const handleIngredientChange = (index, field, value) => {
     setPlateData(prev => {
       const newData = { ...prev };
-      newData.components[index][field] = Number(value);
+      newData.components[index][field] = value === '' ? '' : Number(value);
+      return newData;
+    });
+  };
+
+  const handleWeightBlur = (index) => {
+    setPlateData(prev => {
+      const newData = { ...prev };
+      const ingredient = newData.components[index];
+      const originalIngredient = originalValues[index];
       
-      // Recalculamos totales
-      newData.total_weight = newData.components.reduce((sum, ing) => sum + ing.weight, 0);
-      newData.total_kcal = newData.components.reduce((sum, ing) => sum + ing.kcal, 0);
-      // ... otros totales si es necesario
+      // Calcular nuevos valores proporcionalmente
+      const ratio = ingredient.weight / originalIngredient.weight;
+      ingredient.kcal = Math.round(originalIngredient.kcal * ratio);
+      ingredient.protein_weight = Math.round(originalIngredient.protein_weight * ratio);
+      ingredient.carbohydrates_weight = Math.round(originalIngredient.carbohydrates_weight * ratio);
+      ingredient.fats_weight = Math.round(originalIngredient.fats_weight * ratio);
+      
+      // Recalcular totales
+      newData.total_weight = newData.components.reduce((sum, ing) => sum + (ing.weight || 0), 0);
+      newData.total_kcal = newData.components.reduce((sum, ing) => sum + (ing.kcal || 0), 0);
+      newData.total_protein_weight = newData.components.reduce((sum, ing) => sum + (ing.protein_weight || 0), 0);
+      newData.total_carbohydrates_weight = newData.components.reduce((sum, ing) => sum + (ing.carbohydrates_weight || 0), 0);
+      newData.total_fats_weight = newData.components.reduce((sum, ing) => sum + (ing.fats_weight || 0), 0);
       
       return newData;
     });
@@ -378,20 +405,34 @@ function FoodAnalysisResult({
                     <TextField
                       label="Peso (g)"
                       type="number"
-                      value={ingredient.weight}
+                      value={ingredient.weight === 0 ? '' : ingredient.weight}
                       onChange={(e) => handleIngredientChange(index, 'weight', e.target.value)}
+                      onBlur={() => {
+                        if (ingredient.weight === '') {
+                          handleIngredientChange(index, 'weight', '0');
+                        }
+                        handleWeightBlur(index);
+                      }}
                       fullWidth
                       size="small"
+                      inputProps={{
+                        min: 0,
+                        step: "1"
+                      }}
                     />
                   </Box>
                   <Box sx={{ flex: 1 }}>
                     <TextField
                       label="Kcal"
                       type="number"
-                      value={ingredient.kcal}
+                      value={ingredient.kcal === 0 ? '' : ingredient.kcal}
                       onChange={(e) => handleIngredientChange(index, 'kcal', e.target.value)}
                       fullWidth
                       size="small"
+                      inputProps={{
+                        min: 0,
+                        step: "1"
+                      }}
                     />
                   </Box>
                 </Stack>
