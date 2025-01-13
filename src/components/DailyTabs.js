@@ -33,10 +33,19 @@ function TabPanel({ children, value, index }) {
   );
 }
 
-function DailyTabs({ currentDate, onAddFood, onEditFood }) {
+function DailyTabs({ 
+  currentDate, 
+  onAddFood,
+  onEditFood,
+  onAddActivity,
+  reloadTrigger,
+  onActivityDeleted
+}) {
   const [tabIndex, setTabIndex] = useState(0);
   const [meals, setMeals] = useState([]);
   const [mealToDelete, setMealToDelete] = useState(null);
+  const [activities, setActivities] = useState([]);
+  const [activityToDelete, setActivityToDelete] = useState(null);
 
   useEffect(() => {
     const fetchMeals = async () => {
@@ -65,9 +74,32 @@ function DailyTabs({ currentDate, onAddFood, onEditFood }) {
     }
   }, [currentDate]);
 
-  const handleAddActivity = () => {
-    console.log(`añadir actividad en el día ${currentDate.toLocaleDateString()}`);
-  };
+  useEffect(() => {
+    const fetchActivities = async () => {
+      if (!auth.currentUser) return;
+
+      try {
+        const start = startOfDay(currentDate).toISOString();
+        const end = endOfDay(currentDate).toISOString();
+        
+        const activitiesQuery = query(
+          collection(db, 'activities'),
+          where('userId', '==', auth.currentUser.uid),
+          where('date', '>=', start),
+          where('date', '<=', end)
+        );
+
+        const snapshot = await getDocs(activitiesQuery);
+        setActivities(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      } catch (error) {
+        console.error('Error fetching activities:', error);
+      }
+    };
+
+    if (auth.currentUser) {
+      fetchActivities();
+    }
+  }, [currentDate, reloadTrigger]);
 
   const handleDeleteClick = (meal) => {
     setMealToDelete(meal);
@@ -87,6 +119,27 @@ function DailyTabs({ currentDate, onAddFood, onEditFood }) {
 
   const handleDeleteCancel = () => {
     setMealToDelete(null);
+  };
+
+  const handleDeleteActivityClick = (activity) => {
+    setActivityToDelete(activity);
+  };
+
+  const handleDeleteActivityConfirm = async () => {
+    if (!activityToDelete) return;
+
+    try {
+      await deleteDoc(doc(db, 'activities', activityToDelete.id));
+      setActivities(activities.filter(activity => activity.id !== activityToDelete.id));
+      setActivityToDelete(null);
+      onActivityDeleted();
+    } catch (error) {
+      console.error('Error deleting activity:', error);
+    }
+  };
+
+  const handleDeleteActivityCancel = () => {
+    setActivityToDelete(null);
   };
 
   return (
@@ -167,20 +220,58 @@ function DailyTabs({ currentDate, onAddFood, onEditFood }) {
         </TabPanel>
 
         <TabPanel value={tabIndex} index={1}>
-          <Button
-            fullWidth
-            variant="contained"
-            startIcon={<Add />}
-            onClick={handleAddActivity}
-            sx={{ 
-              bgcolor: '#4CAF50',
-              '&:hover': {
-                bgcolor: '#388E3C'
-              }
-            }}
-          >
-            Añadir actividad
-          </Button>
+          <Stack spacing={2}>
+            <List sx={{ width: '100%', p: 0 }}>
+              {activities.map((activity) => (
+                <ListItem 
+                  key={activity.id}
+                  sx={{ 
+                    py: 2,
+                    px: { xs: 1, sm: 2 },
+                    '&:not(:last-child)': {
+                      borderBottom: '1px solid',
+                      borderColor: 'divider'
+                    }
+                  }}
+                >
+                  <ListItemText
+                    primary={activity.name}
+                    secondary={
+                      <Typography variant="body2" color="text.secondary">
+                        {activity.kcal} kcal
+                      </Typography>
+                    }
+                  />
+                  <ListItemSecondaryAction>
+                    <IconButton 
+                      edge="end" 
+                      aria-label="eliminar"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteActivityClick(activity);
+                      }}
+                    >
+                      <Delete fontSize="small" />
+                    </IconButton>
+                  </ListItemSecondaryAction>
+                </ListItem>
+              ))}
+            </List>
+            <Button
+              fullWidth
+              variant="contained"
+              startIcon={<Add />}
+              onClick={onAddActivity}
+              sx={{ 
+                bgcolor: '#4CAF50',
+                '&:hover': {
+                  bgcolor: '#388E3C'
+                }
+              }}
+            >
+              Añadir actividad
+            </Button>
+          </Stack>
         </TabPanel>
       </Paper>
 
@@ -202,6 +293,32 @@ function DailyTabs({ currentDate, onAddFood, onEditFood }) {
           </Button>
           <Button 
             onClick={handleDeleteConfirm} 
+            color="error" 
+            autoFocus
+          >
+            Eliminar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(activityToDelete)}
+        onClose={handleDeleteActivityCancel}
+      >
+        <DialogTitle>
+          Confirmar eliminación
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            ¿Estás seguro de que quieres eliminar esta actividad?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDeleteActivityCancel}>
+            Cancelar
+          </Button>
+          <Button 
+            onClick={handleDeleteActivityConfirm} 
             color="error" 
             autoFocus
           >

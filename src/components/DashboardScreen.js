@@ -7,6 +7,7 @@ import DailyTabs from './DailyTabs';
 import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import { startOfDay, endOfDay } from 'date-fns';
+import AddActivityScreen from './AddActivityScreen';
 
 function DashboardScreen({ userName }) {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -21,6 +22,8 @@ function DashboardScreen({ userName }) {
     totalKcalBalance: 0
   });
   const [editingMeal, setEditingMeal] = useState(null);
+  const [isAddActivityOpen, setIsAddActivityOpen] = useState(false);
+  const [reloadTrigger, setReloadTrigger] = useState(0);
 
   const formatDate = (date) => {
     const today = new Date();
@@ -121,6 +124,7 @@ function DashboardScreen({ userName }) {
       const start = startOfDay(currentDate).toISOString();
       const end = endOfDay(currentDate).toISOString();
       
+      // Fetch meals
       const mealsQuery = query(
         collection(db, 'plates'),
         where('userId', '==', auth.currentUser.uid),
@@ -128,18 +132,32 @@ function DashboardScreen({ userName }) {
         where('date', '<=', end)
       );
 
-      const snapshot = await getDocs(mealsQuery);
-      const meals = snapshot.docs.map(doc => doc.data());
+      // Fetch activities
+      const activitiesQuery = query(
+        collection(db, 'activities'),
+        where('userId', '==', auth.currentUser.uid),
+        where('date', '>=', start),
+        where('date', '<=', end)
+      );
+
+      const [mealsSnapshot, activitiesSnapshot] = await Promise.all([
+        getDocs(mealsQuery),
+        getDocs(activitiesQuery)
+      ]);
+
+      const meals = mealsSnapshot.docs.map(doc => doc.data());
+      const activities = activitiesSnapshot.docs.map(doc => doc.data());
       
       const totalKcalIngested = meals.reduce((sum, meal) => sum + (meal.total_kcal || 0), 0);
       const totalKcalResting = calculateRestingKcal(currentDate, userData.bmr);
+      const totalKcalActivity = activities.reduce((sum, activity) => sum + (activity.kcal || 0), 0);
       
       setDailyTotals(prev => ({
         ...prev,
         totalKcalIngested,
         totalKcalResting,
-        totalKcalActivity: 0,
-        totalKcalBalance: totalKcalIngested - totalKcalResting
+        totalKcalActivity,
+        totalKcalBalance: totalKcalIngested - totalKcalResting - totalKcalActivity
       }));
       
       setHasMeals(meals.length > 0);
@@ -154,16 +172,26 @@ function DashboardScreen({ userName }) {
     }
   }, [fetchDailyMeals]); // Ahora solo depende de fetchDailyMeals
 
+  const handleActivityAdded = useCallback(() => {
+    setReloadTrigger(prev => prev + 1);
+    fetchDailyMeals();
+  }, [fetchDailyMeals]);
+
   const handleFoodAdded = useCallback(() => {
     setAnalysisData(null);
     setSelectedImage(null);
-    setIsAddFoodOpen(false); // Cerrar el modal
-    fetchDailyMeals(); // Recargar datos
+    setIsAddFoodOpen(false);
+    fetchDailyMeals();
   }, [fetchDailyMeals]);
 
   const handleEditFood = (meal) => {
     setEditingMeal(meal);
   };
+
+  // Añadir manejador para eliminación de actividad
+  const handleActivityDeleted = useCallback(() => {
+    fetchDailyMeals(); // Esto recalculará todos los totales
+  }, [fetchDailyMeals]);
 
   // Si estamos editando una comida, mostramos FoodAnalysisResult
   if (editingMeal) {
@@ -275,6 +303,9 @@ function DashboardScreen({ userName }) {
           currentDate={currentDate}
           onAddFood={() => setIsAddFoodOpen(true)}
           onEditFood={handleEditFood}
+          onAddActivity={() => setIsAddActivityOpen(true)}
+          reloadTrigger={reloadTrigger}
+          onActivityDeleted={handleActivityDeleted}
         />
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -304,7 +335,7 @@ function DashboardScreen({ userName }) {
                   bgcolor: '#388E3C'
                 }
               }}
-              onClick={() => console.log(`añadir actividad en el día ${currentDate.toLocaleDateString()}`)}
+              onClick={() => setIsAddActivityOpen(true)}
             >
               Añadir actividad
             </Button>
@@ -320,6 +351,13 @@ function DashboardScreen({ userName }) {
           setAnalysisData(data);
           setIsAddFoodOpen(false); // Cerrar el modal al recibir el análisis
         }}
+      />
+
+      <AddActivityScreen 
+        open={isAddActivityOpen}
+        onClose={() => setIsAddActivityOpen(false)}
+        currentDate={currentDate}
+        onActivityAdded={handleActivityAdded}
       />
     </Container>
   );
