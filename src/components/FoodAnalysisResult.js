@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Box, 
   Button, 
@@ -46,7 +46,7 @@ const fetchWithRetry = async (url, options, maxRetries = 5, delay = 1000) => {
   }
 };
 
-function FoodAnalysisResult({ 
+const FoodAnalysisResult = React.memo(({ 
   analysisData, 
   selectedImage, 
   currentDate, 
@@ -54,7 +54,7 @@ function FoodAnalysisResult({
   onSuccess,
   isEditing = false,
   imageUrl = null 
-}) {
+}) => {
   const [plateData, setPlateData] = useState(analysisData);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -62,7 +62,12 @@ function FoodAnalysisResult({
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editingIngredientIndex, setEditingIngredientIndex] = useState(null);
   const [manualEditText, setManualEditText] = useState('');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [newIngredientText, setNewIngredientText] = useState('');
+  const currentEditingIndex = useRef(null);
+  const [dialogMode, setDialogMode] = useState(null);
+  const [isEditProcessing, setIsEditProcessing] = useState(false);
+  const [isAddProcessing, setIsAddProcessing] = useState(false);
   const [originalValues] = useState(() => 
     analysisData.components.map(component => ({
       weight: component.weight,
@@ -72,8 +77,6 @@ function FoodAnalysisResult({
       fats_weight: component.fats_weight
     }))
   );
-  const [isProcessing, setIsProcessing] = useState(false);
-  const currentEditingIndex = useRef(null);
 
   useEffect(() => {
     if (selectedImage && !imageUrl) {
@@ -86,29 +89,24 @@ function FoodAnalysisResult({
   }, [selectedImage, imageUrl]);
 
   const handleEditIngredient = useCallback((index) => {
-    console.log('handleEditIngredient llamado con índice:', index);
-    setIsDialogOpen(true);
+    setDialogMode('edit');
+    setIsAddDialogOpen(true);
     setEditingIngredientIndex(index);
     currentEditingIndex.current = index;
     setManualEditText('');
   }, []);
 
   const handleManualEditClose = useCallback(() => {
-    setIsDialogOpen(false);
+    setIsAddDialogOpen(false);
     setManualEditText('');
   }, []);
 
   const handleManualEditSave = useCallback(async () => {
-    console.log('handleManualEditSave llamado');
-    
     if (currentEditingIndex.current !== null && manualEditText.trim()) {
-      console.log('Condición válida, editingIngredientIndex:', currentEditingIndex.current, 'texto:', manualEditText);
-      setIsProcessing(true);
+      setIsEditProcessing(true);
       setError(null);
       
       try {
-        console.log('Iniciando edición manual...');
-        
         const requestData = {
           plate: {
             description: plateData.description,
@@ -131,9 +129,6 @@ function FoodAnalysisResult({
           name: plateData.components[currentEditingIndex.current].name
         };
 
-        console.log('Datos a enviar:', requestData);
-
-        // Usar fetchWithRetry en lugar de fetch
         const response = await fetchWithRetry(
           'https://hook.eu2.make.com/rgkn94t4p7tw3c5f153fu710jslz1trh',
           {
@@ -145,27 +140,19 @@ function FoodAnalysisResult({
           }
         );
 
-        // Obtener el texto de la respuesta
         const responseText = await response.text();
-        console.log('Texto de respuesta:', responseText);
 
-        // Limpiar el texto de la respuesta
         const cleanJson = responseText
-          .replace(/^```json\n/, '')  // Eliminar ```json del inicio
-          .replace(/\n```$/, '');     // Eliminar ``` del final
+          .replace(/^```json\n/, '')
+          .replace(/\n```$/, '');
 
-        // Capturar el índice actual antes de las actualizaciones
         const currentIndex = currentEditingIndex.current;
 
-        // Parsear el JSON limpio
         const parsedResponse = JSON.parse(cleanJson);
-        console.log('JSON parseado:', parsedResponse);
 
-        // Actualizar el estado local con los nuevos valores
         setPlateData(prev => {
           const newData = { ...prev };
           
-          // Usar el índice capturado en lugar del ref
           if (currentIndex === null || currentIndex >= newData.components.length) {
             console.error('Índice no válido o componente no encontrado:', currentIndex);
             return prev;
@@ -178,7 +165,6 @@ function FoodAnalysisResult({
           }
 
           try {
-            // Actualizar valores del componente usando el índice capturado
             component.name = parsedResponse.name || component.name;
             component.kcal = parsedResponse.kcal || component.kcal;
             component.weight = parsedResponse.weight || component.weight;
@@ -186,7 +172,6 @@ function FoodAnalysisResult({
             component.carbohydrates_weight = parsedResponse.carbohydrates_weight || component.carbohydrates_weight;
             component.fats_weight = parsedResponse.fats_weight || component.fats_weight;
 
-            // Recalcular totales
             newData.total_weight = newData.components.reduce((sum, ing) => sum + (ing.weight || 0), 0);
             newData.total_kcal = newData.components.reduce((sum, ing) => sum + (ing.kcal || 0), 0);
             newData.total_protein_weight = newData.components.reduce((sum, ing) => sum + (ing.protein_weight || 0), 0);
@@ -200,8 +185,7 @@ function FoodAnalysisResult({
           }
         });
 
-        // Limpiar estados después de la actualización exitosa
-        setIsDialogOpen(false);
+        setIsAddDialogOpen(false);
         setEditingIngredientIndex(null);
         currentEditingIndex.current = null;
         setManualEditText('');
@@ -210,31 +194,94 @@ function FoodAnalysisResult({
         console.error('Error al procesar la edición manual:', error);
         setError(`Error al procesar la edición manual: ${error.message}`);
       } finally {
-        setIsProcessing(false);
+        setIsEditProcessing(false);
       }
-    } else {
-      console.log('Condición no válida:', { 
-        currentEditingIndex: currentEditingIndex.current, 
-        manualEditText 
-      });
     }
   }, [manualEditText, plateData]);
 
+  const handleAddDialogClose = () => {
+    setIsAddDialogOpen(false);
+    setNewIngredientText('');
+  };
+
+  const handleAddDialogSave = useCallback(async () => {
+    if (newIngredientText.trim()) {
+      setIsAddProcessing(true);
+      setError(null);
+
+      try {
+        const requestData = {
+          instructions: newIngredientText.trim()
+        };
+
+        const response = await fetchWithRetry(
+          'https://hook.eu2.make.com/nssygapxbcco9w5ij35p820ufjimmrgx',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestData)
+          }
+        );
+
+        const responseText = await response.text();
+        const cleanJson = responseText
+          .replace(/^```json\n/, '')
+          .replace(/\n```$/, '');
+
+        const parsedResponse = JSON.parse(cleanJson);
+
+        setPlateData(prev => {
+          const newData = { ...prev };
+          
+          newData.components.push({
+            name: parsedResponse.name,
+            kcal: parsedResponse.kcal,
+            weight: parsedResponse.weight,
+            protein_weight: parsedResponse.protein_weight,
+            carbohydrates_weight: parsedResponse.carbohydrates_weight,
+            fats_weight: parsedResponse.fats_weight
+          });
+
+          const len = newData.components.length;
+          if (len >= 2) {
+            const last = newData.components[len - 1];
+            const prevLast = newData.components[len - 2];
+            
+            if (last.name === prevLast.name &&
+                last.kcal === prevLast.kcal &&
+                last.weight === prevLast.weight &&
+                last.protein_weight === prevLast.protein_weight &&
+                last.carbohydrates_weight === prevLast.carbohydrates_weight &&
+                last.fats_weight === prevLast.fats_weight) {
+              newData.components.pop();
+            }
+          }
+
+          newData.total_weight = newData.components.reduce((sum, ing) => sum + (ing.weight || 0), 0);
+          newData.total_kcal = newData.components.reduce((sum, ing) => sum + (ing.kcal || 0), 0);
+          newData.total_protein_weight = newData.components.reduce((sum, ing) => sum + (ing.protein_weight || 0), 0);
+          newData.total_carbohydrates_weight = newData.components.reduce((sum, ing) => sum + (ing.carbohydrates_weight || 0), 0);
+          newData.total_fats_weight = newData.components.reduce((sum, ing) => sum + (ing.fats_weight || 0), 0);
+
+          return newData;
+        });
+
+        handleAddDialogClose();
+      } catch (error) {
+        console.error('Error al procesar el nuevo ingrediente:', error);
+        setError(`Error al procesar el nuevo ingrediente: ${error.message}`);
+      } finally {
+        setIsAddProcessing(false);
+      }
+    }
+  }, [newIngredientText]);
+
   const handleAddIngredient = () => {
-    setPlateData(prev => ({
-      ...prev,
-      components: [
-        ...prev.components,
-        {
-          name: 'Nuevo ingrediente',
-          weight: 0,
-          kcal: 0,
-          protein_weight: 0,
-          carbohydrates_weight: 0,
-          fats_weight: 0
-        }
-      ]
-    }));
+    setDialogMode('add');
+    setIsAddDialogOpen(true);
+    setNewIngredientText('');
   };
 
   const handleIngredientChange = (index, field, value) => {
@@ -251,14 +298,12 @@ function FoodAnalysisResult({
       const ingredient = newData.components[index];
       const originalIngredient = originalValues[index];
       
-      // Calcular nuevos valores proporcionalmente
       const ratio = ingredient.weight / originalIngredient.weight;
       ingredient.kcal = Math.round(originalIngredient.kcal * ratio);
       ingredient.protein_weight = Math.round(originalIngredient.protein_weight * ratio);
       ingredient.carbohydrates_weight = Math.round(originalIngredient.carbohydrates_weight * ratio);
       ingredient.fats_weight = Math.round(originalIngredient.fats_weight * ratio);
       
-      // Recalcular totales
       newData.total_weight = newData.components.reduce((sum, ing) => sum + (ing.weight || 0), 0);
       newData.total_kcal = newData.components.reduce((sum, ing) => sum + (ing.kcal || 0), 0);
       newData.total_protein_weight = newData.components.reduce((sum, ing) => sum + (ing.protein_weight || 0), 0);
@@ -276,13 +321,11 @@ function FoodAnalysisResult({
     try {
       let finalImageUrl = imageUrl;
 
-      // Si hay una imagen nueva (ya sea por edición o nueva comida)
       if (selectedImage) {
         const storageRef = ref(storage, `plates/${auth.currentUser.uid}/${Date.now()}.jpg`);
         const imageSnapshot = await uploadBytes(storageRef, selectedImage);
         finalImageUrl = await getDownloadURL(imageSnapshot.ref);
       } else {
-        // Si estamos editando, usamos la URL que ya está en plateData
         finalImageUrl = plateData.imageUrl;
       }
 
@@ -383,19 +426,16 @@ function FoodAnalysisResult({
           const newImage = e.target.files[0];
           
           try {
-            // Mostrar preview
             const reader = new FileReader();
             reader.onload = (e) => {
               setPreviewUrl(e.target.result);
             };
             reader.readAsDataURL(newImage);
 
-            // Subir nueva imagen
             const storageRef = ref(storage, `plates/${auth.currentUser.uid}/${Date.now()}.jpg`);
             const imageSnapshot = await uploadBytes(storageRef, newImage);
             const newImageUrl = await getDownloadURL(imageSnapshot.ref);
 
-            // Actualizar URL en plateData
             setPlateData(prev => ({
               ...prev,
               imageUrl: newImageUrl
@@ -419,7 +459,6 @@ function FoodAnalysisResult({
       const newData = { ...prev };
       newData.components = newData.components.filter((_, i) => i !== index);
       
-      // Recalcular totales
       newData.total_weight = newData.components.reduce((sum, ing) => sum + (ing.weight || 0), 0);
       newData.total_kcal = newData.components.reduce((sum, ing) => sum + (ing.kcal || 0), 0);
       newData.total_protein_weight = newData.components.reduce((sum, ing) => sum + (ing.protein_weight || 0), 0);
@@ -434,7 +473,6 @@ function FoodAnalysisResult({
     <>
       <Box sx={{ width: '100%' }}>
         <Stack spacing={3}>
-          {/* Imagen */}
           <Box 
             onClick={handleImageClick}
             sx={{ 
@@ -466,7 +504,6 @@ function FoodAnalysisResult({
             }}
           />
 
-          {/* Descripción del plato */}
           {isEditingDescription ? (
             <TextField
               autoFocus
@@ -513,7 +550,6 @@ function FoodAnalysisResult({
             </Typography>
           )}
 
-          {/* Lista de ingredientes */}
           <Stack spacing={2}>
             {plateData.components.map((ingredient, index) => (
               <Paper key={index} elevation={1} sx={{ p: 2 }}>
@@ -632,7 +668,6 @@ function FoodAnalysisResult({
             ))}
           </Stack>
 
-          {/* Botón añadir ingrediente */}
           <Button
             variant="outlined"
             startIcon={<Add />}
@@ -642,7 +677,6 @@ function FoodAnalysisResult({
             Añadir ingrediente
           </Button>
 
-          {/* Totales */}
           <Paper elevation={1} sx={{ p: 2 }}>
             <Stack spacing={1}>
               <Stack direction="row" spacing={2} justifyContent="space-evenly">
@@ -702,19 +736,27 @@ function FoodAnalysisResult({
       </Box>
 
       <Dialog
-        open={isDialogOpen}
-        onClose={handleManualEditClose}
+        open={isAddDialogOpen}
+        onClose={dialogMode === 'edit' ? handleManualEditClose : handleAddDialogClose}
         fullWidth
         maxWidth="sm"
         disableEscapeKeyDown
+        keepMounted
+        aria-labelledby="dialog-title"
       >
-        <DialogTitle sx={{ typography: 'subtitle1', fontWeight: 'bold' }}>
-          Edición manual de ingrediente
+        <DialogTitle 
+          id="dialog-title" 
+          sx={{ typography: 'subtitle1', fontWeight: 'bold' }}
+        >
+          {dialogMode === 'edit' ? 'Edición manual de ingrediente' : 'Añadir ingrediente'}
         </DialogTitle>
         <DialogContent>
           <Stack spacing={2}>
             <Typography variant="body2">
-              Utiliza el cuadro de texto para editar manual el ingrediente. Puedes indicar, de manera natural, lo que quieres cambiar. Por ejemplo, prueba a escribir cosas como éstas:
+              {dialogMode === 'edit' 
+                ? 'Utiliza el cuadro de texto para editar manual el ingrediente. Puedes indicar, de manera natural, lo que quieres cambiar. Por ejemplo, prueba a escribir cosas como éstas:'
+                : 'Utiliza el cuadro de texto para añadir manualmente un ingrediente. Por ejemplo:'
+              }
             </Typography>
             <Box 
               component="ul" 
@@ -724,40 +766,61 @@ function FoodAnalysisResult({
                 typography: 'body2'
               }}
             >
-              <li>"No es pollo, es atún"</li>
-              <li>"El envase dice que tiene 40 kcal cada 100 g"</li>
-              <li>"Estima el peso de un vaso"</li>
+              {dialogMode === 'edit' ? (
+                <>
+                  <li>"No es pollo, es atún"</li>
+                  <li>"El envase dice que tiene 40 kcal cada 100 g"</li>
+                  <li>"Estima el peso de un vaso"</li>
+                </>
+              ) : (
+                <>
+                  <li>"Lleva un poco de atún"</li>
+                  <li>"También lleva un aliño de aceite, vinagre y sal"</li>
+                  <li>"Tiene dos cucharadas de harina"</li>
+                </>
+              )}
             </Box>
             <TextField
               autoFocus
               margin="dense"
-              label="Introduce aquí tus instrucciones"
+              label={dialogMode === 'edit' ? "Introduce aquí tus instrucciones" : "Describe tu ingrediente"}
+              placeholder={dialogMode === 'edit' ? undefined : "Describe tu ingrediente"}
               fullWidth
               multiline
               rows={4}
-              value={manualEditText}
-              onChange={(e) => setManualEditText(e.target.value)}
+              value={dialogMode === 'edit' ? manualEditText : newIngredientText}
+              onChange={(e) => dialogMode === 'edit' 
+                ? setManualEditText(e.target.value)
+                : setNewIngredientText(e.target.value)
+              }
             />
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleManualEditClose}>
+          <Button 
+            onClick={dialogMode === 'edit' ? handleManualEditClose : handleAddDialogClose}
+          >
             Cancelar
           </Button>
           <Button 
-            onClick={() => {
-              console.log('Botón Aceptar pulsado');
-              handleManualEditSave();
-            }}
+            onClick={dialogMode === 'edit' ? handleManualEditSave : handleAddDialogSave}
             variant="contained"
-            disabled={!manualEditText.trim() || isProcessing}
+            disabled={dialogMode === 'edit' 
+              ? (!manualEditText.trim() || isEditProcessing)
+              : (!newIngredientText.trim() || isAddProcessing)
+            }
           >
-            {isProcessing ? 'Procesando...' : 'Aceptar'}
+            {dialogMode === 'edit'
+              ? (isEditProcessing ? 'Procesando...' : 'Aceptar')
+              : (isAddProcessing ? 'Procesando...' : 'Aceptar')
+            }
           </Button>
         </DialogActions>
       </Dialog>
     </>
   );
-}
+});
+
+FoodAnalysisResult.displayName = 'FoodAnalysisResult';
 
 export default FoodAnalysisResult; 

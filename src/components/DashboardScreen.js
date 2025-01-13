@@ -58,8 +58,6 @@ function DashboardScreen({ userName }) {
   const calculateRestingKcal = useCallback((date, dailyBMR) => {
     if (!dailyBMR) return 0;
 
-    console.log('BMR del usuario:', dailyBMR, 'kcal/día');
-
     // Comparar fechas (sin tiempo)
     const today = new Date();
     const targetDate = new Date(date);
@@ -68,7 +66,6 @@ function DashboardScreen({ userName }) {
 
     // Si es un día pasado, devolver el BMR completo
     if (targetDate < today) {
-      console.log('Día pasado - BMR completo:', dailyBMR);
       return dailyBMR;
     }
 
@@ -85,13 +82,11 @@ function DashboardScreen({ userName }) {
 
     const now = new Date();
     const madridTime = madridFormatter.format(now);
-    console.log('Fecha y hora actual (Madrid):', madridTime);
 
     const [, time] = madridTime.split(', ');
     const [hours, minutes] = time.split(':').map(Number);
     const hoursElapsed = hours + (minutes / 60);
 
-    console.log('Horas transcurridas:', hoursElapsed.toFixed(2), 'horas');
 
     const kcalPerHour = dailyBMR / 24;
     return Math.round(kcalPerHour * hoursElapsed);
