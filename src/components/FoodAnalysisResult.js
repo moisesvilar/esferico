@@ -288,6 +288,14 @@ const FoodAnalysisResult = React.memo(({
     setPlateData(prev => {
       const newData = { ...prev };
       newData.components[index][field] = value === '' ? '' : Number(value);
+
+      // Recalcular totales después de cada cambio
+      newData.total_weight = newData.components.reduce((sum, ing) => sum + (ing.weight || 0), 0);
+      newData.total_kcal = newData.components.reduce((sum, ing) => sum + (ing.kcal || 0), 0);
+      newData.total_protein_weight = newData.components.reduce((sum, ing) => sum + (ing.protein_weight || 0), 0);
+      newData.total_carbohydrates_weight = newData.components.reduce((sum, ing) => sum + (ing.carbohydrates_weight || 0), 0);
+      newData.total_fats_weight = newData.components.reduce((sum, ing) => sum + (ing.fats_weight || 0), 0);
+
       return newData;
     });
   };
