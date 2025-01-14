@@ -156,6 +156,15 @@ function DailyTabs({
 
         <TabPanel value={tabIndex} index={0}>
           <Stack spacing={2}>
+            <Button
+              fullWidth
+              variant="contained"
+              startIcon={<Add />}
+              onClick={onAddFood}
+            >
+              Añadir comida
+            </Button>
+            
             <List sx={{ width: '100%', p: 0 }}>
               {meals.map((meal) => (
                 <ListItem 
@@ -207,15 +216,6 @@ function DailyTabs({
                 </ListItem>
               ))}
             </List>
-            <Button
-              fullWidth
-              variant="contained"
-              startIcon={<Add />}
-              onClick={onAddFood}
-              sx={{ mt: 2 }}
-            >
-              Añadir comida
-            </Button>
           </Stack>
         </TabPanel>
 
