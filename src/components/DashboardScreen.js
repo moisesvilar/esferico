@@ -24,6 +24,7 @@ function DashboardScreen({ userName }) {
   const [editingMeal, setEditingMeal] = useState(null);
   const [isAddActivityOpen, setIsAddActivityOpen] = useState(false);
   const [reloadTrigger, setReloadTrigger] = useState(0);
+  const [userCreationDate, setUserCreationDate] = useState(null);
 
   const formatDate = (date) => {
     const today = new Date();
@@ -44,14 +45,23 @@ function DashboardScreen({ userName }) {
 
     // Evitar navegación a días futuros
     const today = new Date();
-    
-    // Resetear las horas tanto de today como de newDate para comparar solo fechas
     today.setHours(0, 0, 0, 0);
     newDate.setHours(0, 0, 0, 0);
 
     if (newDate > today) {
-      setCurrentDate(new Date(today)); // Si intenta ir al futuro, lo llevamos a hoy
+      setCurrentDate(new Date(today));
       return;
+    }
+
+    // Evitar navegación a días anteriores a la creación del usuario
+    if (userCreationDate) {
+      const creationDate = new Date(userCreationDate);
+      creationDate.setHours(0, 0, 0, 0);
+      
+      if (newDate < creationDate) {
+        setCurrentDate(new Date(creationDate));
+        return;
+      }
     }
 
     setCurrentDate(newDate);
@@ -107,6 +117,8 @@ function DashboardScreen({ userName }) {
         if (userDoc.exists()) {
           const data = userDoc.data();
           setUserData(data);
+          // Guardar la fecha de creación del usuario
+          setUserCreationDate(new Date(auth.currentUser.metadata.creationTime));
         }
       } catch (error) {
         console.error('Error fetching user data:', error);
@@ -232,7 +244,14 @@ function DashboardScreen({ userName }) {
     <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
       {/* Fecha y navegación */}
       <Paper elevation={3} sx={{ p: 2, mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <IconButton onClick={() => navigateDate(-1)}>
+        <IconButton 
+          onClick={() => navigateDate(-1)}
+          disabled={
+            userCreationDate && 
+            new Date(currentDate).setHours(0, 0, 0, 0) === 
+            new Date(userCreationDate).setHours(0, 0, 0, 0)
+          }
+        >
           <ChevronLeft />
         </IconButton>
         <Typography variant="subtitle1">
