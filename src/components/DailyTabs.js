@@ -221,6 +221,21 @@ function DailyTabs({
 
         <TabPanel value={tabIndex} index={1}>
           <Stack spacing={2}>
+            <Button
+              fullWidth
+              variant="contained"
+              startIcon={<Add />}
+              onClick={onAddActivity}
+              sx={{ 
+                bgcolor: '#4CAF50',
+                '&:hover': {
+                  bgcolor: '#388E3C'
+                }
+              }}
+            >
+              Añadir actividad
+            </Button>
+
             <List sx={{ width: '100%', p: 0 }}>
               {activities.map((activity) => (
                 <ListItem 
@@ -257,20 +272,6 @@ function DailyTabs({
                 </ListItem>
               ))}
             </List>
-            <Button
-              fullWidth
-              variant="contained"
-              startIcon={<Add />}
-              onClick={onAddActivity}
-              sx={{ 
-                bgcolor: '#4CAF50',
-                '&:hover': {
-                  bgcolor: '#388E3C'
-                }
-              }}
-            >
-              Añadir actividad
-            </Button>
           </Stack>
         </TabPanel>
       </Paper>
