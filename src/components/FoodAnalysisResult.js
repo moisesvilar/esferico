@@ -669,7 +669,15 @@ const FoodAnalysisResult = React.memo(({
                         size="small"
                         inputProps={{
                           min: 0,
-                          step: "1"
+                          step: "1",
+                          inputMode: "numeric",
+                          pattern: "[0-9]*"
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            e.target.blur();
+                          }
                         }}
                       />
                     </Box>
@@ -683,7 +691,15 @@ const FoodAnalysisResult = React.memo(({
                         size="small"
                         inputProps={{
                           min: 0,
-                          step: "1"
+                          step: "1",
+                          inputMode: "numeric",
+                          pattern: "[0-9]*"
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            e.target.blur();
+                          }
                         }}
                       />
                     </Box>
