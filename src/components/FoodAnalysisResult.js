@@ -89,6 +89,7 @@ const FoodAnalysisResult = React.memo(({
   );
   const [menuAnchorEl, setMenuAnchorEl] = useState(null);
   const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
+  const dialogTextFieldRef = useRef(null);
 
   useEffect(() => {
     if (selectedImage && !imageUrl) {
@@ -503,6 +504,15 @@ const FoodAnalysisResult = React.memo(({
     });
   };
 
+  const handleDialogTextFieldFocus = () => {
+    setTimeout(() => {
+      dialogTextFieldRef.current?.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'center'
+      });
+    }, 100);
+  };
+
   return (
     <>
       <Box sx={{ width: '100%' }}>
@@ -858,6 +868,9 @@ const FoodAnalysisResult = React.memo(({
                 ? setManualEditText(e.target.value)
                 : setNewIngredientText(e.target.value)
               }
+              ref={dialogTextFieldRef}
+              onFocus={handleDialogTextFieldFocus}
+              sx={{ mb: 2 }}
             />
           </Stack>
         </DialogContent>

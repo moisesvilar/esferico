@@ -13,7 +13,7 @@ import {
   Edit,
   LocalFireDepartment
 } from '@mui/icons-material';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 
@@ -152,6 +152,19 @@ function AddActivityScreen({ open, onClose, currentDate, onActivityAdded }) {
     }
   };
 
+  // Añadir ref para el TextField
+  const textFieldRef = useRef(null);
+
+  // Añadir función para hacer scroll
+  const handleTextFieldFocus = () => {
+    setTimeout(() => {
+      textFieldRef.current?.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'center'
+      });
+    }, 100); // pequeño delay para asegurar que el teclado se ha desplegado
+  };
+
   return (
     <>
       <Dialog 
@@ -267,6 +280,9 @@ function AddActivityScreen({ open, onClose, currentDate, onActivityAdded }) {
               placeholder="Introduce aquí las instrucciones"
               value={manualText}
               onChange={(e) => setManualText(e.target.value)}
+              ref={textFieldRef}
+              onFocus={handleTextFieldFocus}
+              sx={{ mb: 2 }}
             />
           </Stack>
         </DialogContent>
