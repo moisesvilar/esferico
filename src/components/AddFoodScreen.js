@@ -17,6 +17,8 @@ import {
   ArrowBack 
 } from '@mui/icons-material';
 import AnalyzingFood from './AnalyzingFood';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage, auth } from '../config/firebase';
 
 const PLACEHOLDER_IMAGE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='; // Imagen transparente 1x1
 
@@ -45,57 +47,56 @@ const fetchWithRetry = async (url, options, maxRetries = 5, delay = 1000) => {
 
 function AddFoodScreen({ open, onClose, onImageAnalyzed }) {
   const [step, setStep] = useState('initial');
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState(null);
   const [isManualDialogOpen, setIsManualDialogOpen] = useState(false);
   const [manualText, setManualText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
-  const analyzeImageWithRetry = async (image, maxRetries = 5) => {
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        const formData = new FormData();
-        formData.append('image', image);
+  const handleImageSelected = async (file) => {
+    if (!file) return;
 
-        const response = await fetch('https://hook.eu2.make.com/d2j15f81g7x85o1mfl2crku1ruulqzul', {
+    try {
+      setIsUploading(true);
+      setError(null);
+
+      // Subir la imagen a Firebase Storage
+      const storageRef = ref(storage, `plates/${auth.currentUser.uid}/${Date.now()}.jpg`);
+      const uploadResult = await uploadBytes(storageRef, file);
+
+      // Obtener la URL de descarga
+      const imageUrl = await getDownloadURL(uploadResult.ref);
+
+      // Preparar los datos para el análisis
+      const formData = new FormData();
+      formData.append('image', file);
+      formData.append('imageUrl', imageUrl);
+
+      // Hacer la petición al servidor de análisis usando el endpoint correcto
+      const response = await fetchWithRetry(
+        'https://hook.eu2.make.com/d2j15f81g7x85o1mfl2crku1ruulqzul',
+        {
           method: 'POST',
           body: formData
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
         }
+      );
 
-        const rawText = await response.text();
-        let cleanText = rawText
-          .replace(/```json\n/, '')
-          .replace(/\n```/, '')
-          .trim();
+      const responseText = await response.text();
+      const cleanJson = responseText
+        .replace(/^```json\n/, '')
+        .replace(/\n```$/, '')
+        .trim();
 
-        const data = JSON.parse(cleanText);
-        return data;
-        
-      } catch (error) {
-        if (attempt === maxRetries) {
-          throw error;
-        }
-        
-        const waitTime = Math.min(1000 * Math.pow(2, attempt), 10000);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-      }
-    }
-  };
+      const analysisResult = JSON.parse(cleanJson);
 
-  const handleImageSelected = async (image) => {
-    setIsAnalyzing(true);
-    try {
-      const data = await analyzeImageWithRetry(image);
-      onImageAnalyzed(image, data);
+      // Notificar el resultado
+      onImageAnalyzed(file, analysisResult);
+
     } catch (error) {
-      console.error('Error analyzing image after all retries:', error);
-      setError('Error al analizar la imagen. Por favor, inténtalo de nuevo.');
+      console.error('Error processing image:', error);
+      setError('Error al procesar la imagen. Por favor, inténtalo de nuevo.');
     } finally {
-      setIsAnalyzing(false);
+      setIsUploading(false);
     }
   };
 
@@ -196,7 +197,7 @@ function AddFoodScreen({ open, onClose, onImageAnalyzed }) {
   };
 
   const renderContent = () => {
-    if (isAnalyzing) {
+    if (isUploading) {
       return (
         <DialogContent>
           <AnalyzingFood />
