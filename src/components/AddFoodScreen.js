@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Button, 
   Typography, 
@@ -8,17 +8,20 @@ import {
   Stack,
   DialogTitle,
   TextField,
-  Box
+  Box,
+  Autocomplete
 } from '@mui/material';
 import { 
   PhotoCamera, 
   PhotoLibrary, 
   Edit, 
-  ArrowBack 
+  ArrowBack,
+  Star
 } from '@mui/icons-material';
 import AnalyzingFood from './AnalyzingFood';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage, auth } from '../config/firebase';
+import { storage, auth, db } from '../config/firebase';
+import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 
 const PLACEHOLDER_IMAGE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='; // Imagen transparente 1x1
 
@@ -45,13 +48,47 @@ const fetchWithRetry = async (url, options, maxRetries = 5, delay = 1000) => {
   }
 };
 
-function AddFoodScreen({ open, onClose, onImageAnalyzed }) {
+function AddFoodScreen({ open, onClose, onImageAnalyzed, currentDate }) {
   const [step, setStep] = useState('initial');
   const [error, setError] = useState(null);
   const [isManualDialogOpen, setIsManualDialogOpen] = useState(false);
+  const [isFavoritesDialogOpen, setIsFavoritesDialogOpen] = useState(false);
   const [manualText, setManualText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [favorites, setFavorites] = useState([]);
+  const [selectedFavorite, setSelectedFavorite] = useState(null);
+  const [hasFavorites, setHasFavorites] = useState(false);
+
+  // Cargar comidas favoritas al abrir el diálogo
+  useEffect(() => {
+    const fetchFavorites = async () => {
+      if (!auth.currentUser) return;
+
+      try {
+        const favoritesQuery = query(
+          collection(db, 'plates'),
+          where('userId', '==', auth.currentUser.uid),
+          where('isFavorite', '==', true)
+        );
+
+        const snapshot = await getDocs(favoritesQuery);
+        const favoriteMeals = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+
+        setFavorites(favoriteMeals);
+        setHasFavorites(favoriteMeals.length > 0);
+      } catch (error) {
+        console.error('Error fetching favorites:', error);
+      }
+    };
+
+    if (open) {
+      fetchFavorites();
+    }
+  }, [open]);
 
   const handleImageSelected = async (file) => {
     if (!file) return;
@@ -196,6 +233,48 @@ function AddFoodScreen({ open, onClose, onImageAnalyzed }) {
     }
   };
 
+  const handleFavoriteClick = () => {
+    setIsFavoritesDialogOpen(true);
+  };
+
+  const handleFavoriteClose = () => {
+    setIsFavoritesDialogOpen(false);
+    setSelectedFavorite(null);
+  };
+
+  const handleFavoriteSave = async () => {
+    if (!selectedFavorite) return;
+
+    try {
+      // Crear una copia de la comida favorita con los campos necesarios
+      const newMeal = {
+        description: selectedFavorite.description,
+        total_kcal: selectedFavorite.total_kcal,
+        total_weight: selectedFavorite.total_weight,
+        total_protein_weight: selectedFavorite.total_protein_weight,
+        total_carbohydrates_weight: selectedFavorite.total_carbohydrates_weight,
+        total_fats_weight: selectedFavorite.total_fats_weight,
+        components: selectedFavorite.components,
+        imageUrl: selectedFavorite.imageUrl,
+        isFavorite: selectedFavorite.isFavorite,
+        date: currentDate.toISOString(),
+        userId: auth.currentUser.uid,
+        createdAt: serverTimestamp()
+      };
+
+      // Guardar directamente en Firestore
+      await addDoc(collection(db, 'plates'), newMeal);
+      
+      // Cerrar diálogos y notificar
+      handleFavoriteClose();
+      onClose();
+      onImageAnalyzed(null, null); // Esto disparará el refresco del listado
+    } catch (error) {
+      console.error('Error saving favorite meal:', error);
+      // Aquí podrías mostrar un mensaje de error al usuario
+    }
+  };
+
   const renderContent = () => {
     if (isUploading) {
       return (
@@ -259,6 +338,23 @@ function AddFoodScreen({ open, onClose, onImageAnalyzed }) {
           <>
             <DialogContent>
               <Stack spacing={2}>
+                {hasFavorites && (
+                  <Button
+                    variant="contained"
+                    startIcon={<Star />}
+                    onClick={handleFavoriteClick}
+                    sx={{
+                      bgcolor: '#FFC107',
+                      '&:hover': {
+                        bgcolor: '#FFA000'
+                      }
+                    }}
+                    fullWidth
+                  >
+                    Entre tus favoritas
+                  </Button>
+                )}
+
                 <Button
                   variant="contained"
                   startIcon={<PhotoCamera />}
@@ -344,6 +440,74 @@ function AddFoodScreen({ open, onClose, onImageAnalyzed }) {
             disabled={!manualText.trim() || isProcessing}
           >
             {isProcessing ? 'Procesando...' : 'Aceptar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Nuevo diálogo para seleccionar favoritos */}
+      <Dialog
+        open={isFavoritesDialogOpen}
+        onClose={handleFavoriteClose}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>
+          Seleccionar comida favorita
+        </DialogTitle>
+        <DialogContent>
+          <Autocomplete
+            options={favorites}
+            getOptionLabel={(option) => option.description}
+            value={selectedFavorite}
+            onChange={(_, newValue) => setSelectedFavorite(newValue)}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Buscar entre tus favoritos"
+                fullWidth
+                margin="normal"
+              />
+            )}
+            renderOption={(props, option) => {
+              const { key, ...otherProps } = props;
+              
+              return (
+                <Box 
+                  component="li" 
+                  key={key}
+                  {...otherProps}
+                >
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    {option.imageUrl && (
+                      <Box
+                        component="img"
+                        src={option.imageUrl}
+                        alt={option.description}
+                        sx={{ width: 40, height: 40, borderRadius: 1 }}
+                      />
+                    )}
+                    <Stack>
+                      <Typography>{option.description}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {option.total_weight}g · {option.total_kcal} kcal
+                      </Typography>
+                    </Stack>
+                  </Stack>
+                </Box>
+              );
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleFavoriteClose}>
+            Cancelar
+          </Button>
+          <Button 
+            onClick={handleFavoriteSave}
+            variant="contained"
+            disabled={!selectedFavorite}
+          >
+            Aceptar
           </Button>
         </DialogActions>
       </Dialog>

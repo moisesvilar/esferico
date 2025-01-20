@@ -364,12 +364,11 @@ const FoodAnalysisResult = React.memo(({
     try {
       let finalImageUrl = imageUrl;
 
+      // Solo subir imagen si hay una nueva
       if (selectedImage) {
         const storageRef = ref(storage, `plates/${auth.currentUser.uid}/${Date.now()}.jpg`);
         const imageSnapshot = await uploadBytes(storageRef, selectedImage);
         finalImageUrl = await getDownloadURL(imageSnapshot.ref);
-      } else {
-        finalImageUrl = plateData.imageUrl;
       }
 
       const plateDoc = {
@@ -390,23 +389,15 @@ const FoodAnalysisResult = React.memo(({
         })),
         imageUrl: finalImageUrl,
         userId: auth.currentUser.uid,
-        updatedAt: serverTimestamp(),
-        isFavorite
+        createdAt: serverTimestamp(),
+        isFavorite: plateData.isFavorite || false
       };
 
-      if (isEditing) {
-        await setDoc(doc(db, 'plates', plateData.id), plateDoc, { merge: true });
-      } else {
-        await addDoc(collection(db, 'plates'), {
-          ...plateDoc,
-          createdAt: serverTimestamp()
-        });
-      }
-
+      await addDoc(collection(db, 'plates'), plateDoc);
       onSuccess();
     } catch (error) {
       console.error('Error saving plate:', error);
-      setError('Error al guardar los datos');
+      setError('Error al guardar los datos. Por favor, inténtalo de nuevo.');
     } finally {
       setIsSaving(false);
     }

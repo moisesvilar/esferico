@@ -160,8 +160,15 @@ function DashboardScreen({ userName }) {
         getDocs(activitiesQuery)
       ]);
 
-      const meals = mealsSnapshot.docs.map(doc => doc.data());
-      const activities = activitiesSnapshot.docs.map(doc => doc.data());
+      // Incluir el ID del documento en los datos
+      const meals = mealsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      const activities = activitiesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
       
       const totalKcalIngested = meals.reduce((sum, meal) => sum + (meal.total_kcal || 0), 0);
       const totalKcalResting = calculateRestingKcal(currentDate, userData.bmr);
@@ -195,11 +202,11 @@ function DashboardScreen({ userName }) {
   }, [fetchDailyMeals]);
 
   const handleFoodAdded = useCallback(() => {
-    setReloadTrigger(prev => prev + 1);
-    setActiveTab(0);
+    setIsAddFoodOpen(false);
     setAnalysisData(null);
     setSelectedImage(null);
-    setIsAddFoodOpen(false);
+    setActiveTab(0);
+    setReloadTrigger(prev => prev + 1);
     fetchDailyMeals();
   }, [fetchDailyMeals]);
 
@@ -236,7 +243,7 @@ function DashboardScreen({ userName }) {
   }
 
   // Si estamos añadiendo una comida nueva
-  if (analysisData && selectedImage) {
+  if (analysisData) {
     return (
       <FoodAnalysisResult 
         analysisData={analysisData}
@@ -396,10 +403,17 @@ function DashboardScreen({ userName }) {
       <AddFoodScreen 
         open={isAddFoodOpen}
         onClose={() => setIsAddFoodOpen(false)}
+        currentDate={currentDate}
         onImageAnalyzed={(image, data) => {
-          setSelectedImage(image);
-          setAnalysisData(data);
-          setIsAddFoodOpen(false); // Cerrar el modal al recibir el análisis
+          if (image === null && data === null) {
+            // Si viene de favoritos, solo refrescar
+            handleFoodAdded();
+          } else {
+            // Si viene de foto o manual, mostrar análisis
+            setSelectedImage(image);
+            setAnalysisData(data);
+            setIsAddFoodOpen(false);
+          }
         }}
       />
 

@@ -74,7 +74,7 @@ function DailyTabs({
     if (auth.currentUser) {
       fetchMeals();
     }
-  }, [currentDate]);
+  }, [currentDate, reloadTrigger]);
 
   useEffect(() => {
     const fetchActivities = async () => {
