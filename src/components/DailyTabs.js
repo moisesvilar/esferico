@@ -49,6 +49,15 @@ function DailyTabs({
   const [activities, setActivities] = useState([]);
   const [activityToDelete, setActivityToDelete] = useState(null);
 
+  const formatTime = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('es-ES', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: false 
+    });
+  };
+
   useEffect(() => {
     const fetchMeals = async () => {
       if (!auth.currentUser) return;
@@ -65,7 +74,16 @@ function DailyTabs({
         );
 
         const snapshot = await getDocs(mealsQuery);
-        setMeals(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        const mealsData = snapshot.docs.map(doc => ({ 
+          id: doc.id, 
+          ...doc.data() 
+        }));
+
+        const sortedMeals = mealsData.sort((a, b) => 
+          new Date(b.date) - new Date(a.date)
+        );
+
+        setMeals(sortedMeals);
       } catch (error) {
         console.error('Error fetching meals:', error);
       }
@@ -199,10 +217,24 @@ function DailyTabs({
                   </ListItemAvatar>
                   <ListItemText
                     primary={meal.description}
+                    secondaryTypographyProps={{ component: 'div' }}
                     secondary={
-                      <Typography variant="body2" color="text.secondary">
-                        {meal.total_weight}g · {meal.total_kcal} kcal
-                      </Typography>
+                      <Stack spacing={0.5}>
+                        <Typography 
+                          component="span" 
+                          variant="body2" 
+                          color="text.secondary"
+                        >
+                          {meal.total_weight}g · {meal.total_kcal} kcal
+                        </Typography>
+                        <Typography 
+                          component="span" 
+                          variant="caption" 
+                          color="text.secondary"
+                        >
+                          {formatTime(meal.date)}
+                        </Typography>
+                      </Stack>
                     }
                     sx={{ mr: 4 }}
                   />
