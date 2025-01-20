@@ -153,7 +153,7 @@ function DailyTabs({
           variant="fullWidth"
         >
           <Tab label="Comidas" />
-          <Tab label="Actividad" />
+          <Tab label="Actividades" />
         </Tabs>
 
         <TabPanel value={tabIndex} index={0}>
