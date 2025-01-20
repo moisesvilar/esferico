@@ -27,6 +27,7 @@ function DashboardScreen({ userName }) {
   const [reloadTrigger, setReloadTrigger] = useState(0);
   const [userCreationDate, setUserCreationDate] = useState(null);
   const [editingActivity, setEditingActivity] = useState(null);
+  const [activeTab, setActiveTab] = useState(0);
 
   const formatDate = (date) => {
     const today = new Date();
@@ -189,10 +190,13 @@ function DashboardScreen({ userName }) {
 
   const handleActivityAdded = useCallback(() => {
     setReloadTrigger(prev => prev + 1);
+    setActiveTab(1);
     fetchDailyMeals();
   }, [fetchDailyMeals]);
 
   const handleFoodAdded = useCallback(() => {
+    setReloadTrigger(prev => prev + 1);
+    setActiveTab(0);
     setAnalysisData(null);
     setSelectedImage(null);
     setIsAddFoodOpen(false);
@@ -223,7 +227,7 @@ function DashboardScreen({ userName }) {
         onCancel={() => setEditingMeal(null)}
         onSuccess={() => {
           setEditingMeal(null);
-          fetchDailyMeals();
+          handleFoodAdded();
         }}
         isEditing={true}
         imageUrl={editingMeal.imageUrl}
@@ -242,8 +246,11 @@ function DashboardScreen({ userName }) {
           setAnalysisData(null);
           setSelectedImage(null);
         }}
-        onSuccess={handleFoodAdded}
-        isEditing={false}
+        onSuccess={() => {
+          setAnalysisData(null);
+          setSelectedImage(null);
+          handleFoodAdded();
+        }}
       />
     );
   }
@@ -256,7 +263,7 @@ function DashboardScreen({ userName }) {
         onCancel={() => setEditingActivity(null)}
         onSuccess={() => {
           setEditingActivity(null);
-          fetchDailyMeals();
+          handleActivityAdded();
         }}
       />
     );
@@ -348,7 +355,7 @@ function DashboardScreen({ userName }) {
           onEditActivity={handleEditActivity}
           reloadTrigger={reloadTrigger}
           onActivityDeleted={handleActivityDeleted}
-          defaultTab={1}
+          defaultTab={activeTab}
         />
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

@@ -15,7 +15,7 @@ import {
   MenuItem,
   styled
 } from '@mui/material';
-import { Edit, Add, Check, Close, Delete, ZoomIn } from '@mui/icons-material';
+import { Edit, Add, Check, Close, Delete, ZoomIn, Star, StarBorder } from '@mui/icons-material';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp, setDoc, doc } from 'firebase/firestore';
 import { auth, storage, db } from '../config/firebase';
@@ -90,6 +90,7 @@ const FoodAnalysisResult = React.memo(({
   const [menuAnchorEl, setMenuAnchorEl] = useState(null);
   const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
   const dialogTextFieldRef = useRef(null);
+  const [isFavorite, setIsFavorite] = useState(analysisData.isFavorite || false);
 
   useEffect(() => {
     if (selectedImage && !imageUrl) {
@@ -335,6 +336,27 @@ const FoodAnalysisResult = React.memo(({
     });
   };
 
+  const handleFavoriteToggle = async () => {
+    try {
+      const newFavoriteState = !isFavorite;
+      setIsFavorite(newFavoriteState);
+
+      if (isEditing) {
+        await setDoc(doc(db, 'plates', analysisData.id), {
+          isFavorite: newFavoriteState
+        }, { merge: true });
+      }
+
+      setPlateData(prev => ({
+        ...prev,
+        isFavorite: newFavoriteState
+      }));
+    } catch (error) {
+      console.error('Error updating favorite status:', error);
+      setIsFavorite(!isFavorite);
+    }
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     setError(null);
@@ -368,7 +390,8 @@ const FoodAnalysisResult = React.memo(({
         })),
         imageUrl: finalImageUrl,
         userId: auth.currentUser.uid,
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
+        isFavorite
       };
 
       if (isEditing) {
@@ -386,29 +409,6 @@ const FoodAnalysisResult = React.memo(({
       setError('Error al guardar los datos');
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const handleDescriptionClick = () => {
-    if (isEditing) {
-      setIsEditingDescription(true);
-    }
-  };
-
-  const handleDescriptionChange = (e) => {
-    setPlateData(prev => ({
-      ...prev,
-      description: e.target.value
-    }));
-  };
-
-  const handleDescriptionBlur = () => {
-    setIsEditingDescription(false);
-  };
-
-  const handleDescriptionKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      setIsEditingDescription(false);
     }
   };
 
@@ -548,51 +548,42 @@ const FoodAnalysisResult = React.memo(({
             }}
           />
 
-          {isEditingDescription ? (
-            <TextField
-              autoFocus
-              fullWidth
-              value={plateData.description}
-              onChange={handleDescriptionChange}
-              onBlur={handleDescriptionBlur}
-              onKeyPress={handleDescriptionKeyPress}
-              variant="standard"
-              sx={{ 
-                '& input': { 
-                  textAlign: 'center',
-                  fontSize: '1rem',
-                  fontWeight: 'normal'
-                }
-              }}
-            />
-          ) : (
-            <Typography 
-              variant="body1" 
-              align="center"
-              onClick={handleDescriptionClick}
-              sx={{ 
-                cursor: isEditing ? 'pointer' : 'default',
-                '&:hover': isEditing ? {
-                  bgcolor: 'action.hover',
-                  borderRadius: 1,
-                  px: 1
-                } : {}
-              }}
-            >
-              {plateData.description}
+          <Stack 
+            direction="row" 
+            alignItems="center" 
+            justifyContent="space-between"
+            sx={{ mb: 2 }}
+          >
+            {isEditingDescription ? (
+              <TextField
+                value={plateData.description}
+                onChange={(e) => setPlateData(prev => ({ ...prev, description: e.target.value }))}
+                fullWidth
+                size="small"
+                sx={{ mr: 1 }}
+              />
+            ) : (
+              <Typography variant="h6">
+                {plateData.description}
+              </Typography>
+            )}
+            
+            <Stack direction="row" spacing={1} alignItems="center">
+              <IconButton 
+                onClick={handleFavoriteToggle}
+                color={isFavorite ? "warning" : "default"}
+              >
+                {isFavorite ? <Star /> : <StarBorder />}
+              </IconButton>
               {isEditing && (
-                <Edit 
-                  fontSize="small" 
-                  sx={{ 
-                    ml: 1, 
-                    verticalAlign: 'middle',
-                    color: 'text.secondary',
-                    fontSize: '0.8rem'
-                  }} 
-                />
+                <IconButton 
+                  onClick={() => setIsEditingDescription(!isEditingDescription)}
+                >
+                  {isEditingDescription ? <Check /> : <Edit />}
+                </IconButton>
               )}
-            </Typography>
-          )}
+            </Stack>
+          </Stack>
 
           <Stack spacing={2}>
             {plateData.components.map((ingredient, index) => (

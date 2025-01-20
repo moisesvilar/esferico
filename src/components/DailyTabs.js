@@ -20,7 +20,7 @@ import {
   DialogActions,
   DialogContentText
 } from '@mui/material';
-import { Add, Delete } from '@mui/icons-material';
+import { Add, Delete, Star } from '@mui/icons-material';
 import { collection, query, where, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import { startOfDay, endOfDay } from 'date-fns';
@@ -206,11 +206,17 @@ function DailyTabs({
                     }
                     sx={{ mr: 4 }}
                   />
-                  <ListItemSecondaryAction>
+                  <ListItemSecondaryAction sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {meal.isFavorite && (
+                      <Star fontSize="small" color="warning" />
+                    )}
                     <IconButton 
                       edge="end" 
                       aria-label="eliminar"
-                      onClick={() => handleDeleteClick(meal)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteClick(meal);
+                      }}
                     >
                       <Delete fontSize="small" />
                     </IconButton>
