@@ -38,10 +38,12 @@ function DailyTabs({
   onAddFood,
   onEditFood,
   onAddActivity,
+  onEditActivity,
   reloadTrigger,
-  onActivityDeleted
+  onActivityDeleted,
+  defaultTab = 0
 }) {
-  const [tabIndex, setTabIndex] = useState(0);
+  const [tabIndex, setTabIndex] = useState(defaultTab);
   const [meals, setMeals] = useState([]);
   const [mealToDelete, setMealToDelete] = useState(null);
   const [activities, setActivities] = useState([]);
@@ -246,8 +248,13 @@ function DailyTabs({
                     '&:not(:last-child)': {
                       borderBottom: '1px solid',
                       borderColor: 'divider'
+                    },
+                    cursor: 'pointer',
+                    '&:hover': {
+                      bgcolor: 'action.hover'
                     }
                   }}
+                  onClick={() => onEditActivity(activity)}
                 >
                   <ListItemText
                     primary={activity.name}

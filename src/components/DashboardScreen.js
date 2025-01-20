@@ -8,13 +8,14 @@ import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firesto
 import { auth, db } from '../config/firebase';
 import { startOfDay, endOfDay } from 'date-fns';
 import AddActivityScreen from './AddActivityScreen';
+import ActivityEditScreen from './ActivityEditScreen';
 
 function DashboardScreen({ userName }) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isAddFoodOpen, setIsAddFoodOpen] = useState(false);
   const [analysisData, setAnalysisData] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
-  const [hasMeals, setHasMeals] = useState(false);
+  const [hasContent, setHasContent] = useState(false);
   const [dailyTotals, setDailyTotals] = useState({
     totalKcalIngested: 0,
     totalKcalResting: 0,
@@ -25,6 +26,7 @@ function DashboardScreen({ userName }) {
   const [isAddActivityOpen, setIsAddActivityOpen] = useState(false);
   const [reloadTrigger, setReloadTrigger] = useState(0);
   const [userCreationDate, setUserCreationDate] = useState(null);
+  const [editingActivity, setEditingActivity] = useState(null);
 
   const formatDate = (date) => {
     const today = new Date();
@@ -172,7 +174,8 @@ function DashboardScreen({ userName }) {
         totalKcalBalance: totalKcalIngested - totalKcalResting - totalKcalActivity
       }));
       
-      setHasMeals(meals.length > 0);
+      // Actualizar hasContent si hay comidas O actividades
+      setHasContent(meals.length > 0 || activities.length > 0);
     } catch (error) {
       console.error('Error checking meals:', error);
     }
@@ -205,6 +208,11 @@ function DashboardScreen({ userName }) {
     fetchDailyMeals(); // Esto recalculará todos los totales
   }, [fetchDailyMeals]);
 
+  // Añadir manejador para editar actividad
+  const handleEditActivity = (activity) => {
+    setEditingActivity(activity);
+  };
+
   // Si estamos editando una comida, mostramos FoodAnalysisResult
   if (editingMeal) {
     return (
@@ -236,6 +244,20 @@ function DashboardScreen({ userName }) {
         }}
         onSuccess={handleFoodAdded}
         isEditing={false}
+      />
+    );
+  }
+
+  // Si estamos editando una actividad
+  if (editingActivity) {
+    return (
+      <ActivityEditScreen 
+        activity={editingActivity}
+        onCancel={() => setEditingActivity(null)}
+        onSuccess={() => {
+          setEditingActivity(null);
+          fetchDailyMeals();
+        }}
       />
     );
   }
@@ -317,14 +339,16 @@ function DashboardScreen({ userName }) {
       </Box>
 
       {/* Botones de acción o pestañas */}
-      {hasMeals ? (
+      {hasContent ? (
         <DailyTabs 
           currentDate={currentDate}
           onAddFood={() => setIsAddFoodOpen(true)}
           onEditFood={handleEditFood}
           onAddActivity={() => setIsAddActivityOpen(true)}
+          onEditActivity={handleEditActivity}
           reloadTrigger={reloadTrigger}
           onActivityDeleted={handleActivityDeleted}
+          defaultTab={1}
         />
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
