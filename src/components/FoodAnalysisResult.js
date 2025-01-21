@@ -517,8 +517,21 @@ const FoodAnalysisResult = React.memo(({
 
   return (
     <>
-      <Box sx={{ width: '100%' }}>
-        <Stack spacing={3}>
+      <Box sx={{ 
+        width: '100%', 
+        maxWidth: { xs: '100%', sm: '600px' },  // Ancho máximo más restrictivo
+        mx: 'auto',  // Centrar horizontalmente
+        p: { xs: 3, sm: 4 },  // Padding general
+        boxSizing: 'border-box',  // Incluir padding en el ancho total
+        '& > *': {  // Asegurar que los hijos no se desborden
+          maxWidth: '100%',
+          overflowX: 'hidden'
+        }
+      }}>
+        <Stack spacing={3} sx={{ 
+          width: '100%',
+          maxWidth: '100%'  // Asegurar que el Stack no se desborde
+        }}>
           <Box 
             onClick={handleImageClick}
             sx={{ 
