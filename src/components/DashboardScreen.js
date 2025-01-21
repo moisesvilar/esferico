@@ -254,10 +254,10 @@ function DashboardScreen({ userName }) {
           setSelectedImage(null);
         }}
         onSuccess={() => {
-          setAnalysisData(null);
-          setSelectedImage(null);
           handleFoodAdded();
+          setAnalysisData(null);
         }}
+        isManualInput={analysisData.isManualInput}
         userCreationDate={userCreationDate}
       />
     );

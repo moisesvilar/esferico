@@ -12,7 +12,6 @@ import {
   ListItemAvatar,
   ListItemText,
   ListItemSecondaryAction,
-  Avatar,
   IconButton,
   Dialog,
   DialogTitle,
@@ -20,7 +19,7 @@ import {
   DialogActions,
   DialogContentText
 } from '@mui/material';
-import { Add, Delete, Star } from '@mui/icons-material';
+import { Add, Delete, Star, RestaurantMenu } from '@mui/icons-material';
 import { collection, query, where, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import { startOfDay, endOfDay } from 'date-fns';
@@ -162,6 +161,42 @@ function DailyTabs({
     setActivityToDelete(null);
   };
 
+  const renderPlateImage = (plate) => {
+    // Usar siempre thumbnailUrl si existe, nunca la imagen grande
+    if (plate.hasImage && plate.thumbnailUrl) {
+      return (
+        <Box
+          component="img"
+          src={plate.thumbnailUrl}
+          alt={plate.description}
+          sx={{
+            width: 48,
+            height: 48,
+            borderRadius: 1,
+            objectFit: 'cover'
+          }}
+        />
+      );
+    }
+
+    // Si no hay imagen o es un plato manual, mostrar el icono de comida
+    return (
+      <Box
+        sx={{
+          width: 48,
+          height: 48,
+          borderRadius: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: 'action.selected'
+        }}
+      >
+        <RestaurantMenu sx={{ color: 'text.secondary' }} />
+      </Box>
+    );
+  };
+
   return (
     <>
       <Paper elevation={3} sx={{ p: 2 }}>
@@ -204,16 +239,7 @@ function DailyTabs({
                   onClick={() => onEditFood(meal)}
                 >
                   <ListItemAvatar>
-                    <Avatar 
-                      variant="rounded"
-                      src={meal.thumbnailUrl || meal.imageUrl}
-                      alt={meal.description}
-                      sx={{ 
-                        width: 56,
-                        height: 56,
-                        mr: 2
-                      }}
-                    />
+                    {renderPlateImage(meal)}
                   </ListItemAvatar>
                   <ListItemText
                     primary={meal.description}

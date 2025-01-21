@@ -111,12 +111,13 @@ const formatDateToISO = (date) => {
 const FoodAnalysisResult = React.memo(({ 
   analysisData, 
   selectedImage, 
-  currentDate,  // Esta es la fecha seleccionada en la navegación
+  currentDate, 
   onCancel, 
   onSuccess,
   isEditing = false,
   imageUrl = null,
-  userCreationDate
+  userCreationDate,
+  isManualInput = false
 }) => {
   const [plateData, setPlateData] = useState(() => {
     if (!isEditing) {
@@ -515,8 +516,8 @@ const FoodAnalysisResult = React.memo(({
     setError(null);
 
     try {
-      let finalImageUrl = imageUrl;
-      let thumbnailUrl = imageUrl;
+      let finalImageUrl = null;
+      let thumbnailUrl = null;
       let imageHash = null;
       let hasImage = false;
 
@@ -524,19 +525,32 @@ const FoodAnalysisResult = React.memo(({
         hasImage = true;
         imageHash = await calculateImageHash(selectedImage);
         
-        // Procesar imagen solo si hay una nueva
-        const largeImage = await resizeImage(selectedImage, 1024);
-        const largeStorageRef = ref(storage, `plates/${auth.currentUser.uid}/${Date.now()}_large.jpg`);
-        const largeSnapshot = await uploadBytes(largeStorageRef, largeImage);
-        finalImageUrl = await getDownloadURL(largeSnapshot.ref);
+        // Subir versión grande y pequeña por separado
+        const [largeImage, thumbImage] = await Promise.all([
+          resizeImage(selectedImage, 1024),
+          resizeImage(selectedImage, 100)
+        ]);
 
-        const thumbImage = await resizeImage(selectedImage, 100);
-        const thumbStorageRef = ref(storage, `plates/${auth.currentUser.uid}/${Date.now()}_thumb.jpg`);
-        const thumbSnapshot = await uploadBytes(thumbStorageRef, thumbImage);
-        thumbnailUrl = await getDownloadURL(thumbSnapshot.ref);
+        // Crear referencias únicas para cada versión
+        const timestamp = Date.now();
+        const largeStorageRef = ref(storage, `plates/${auth.currentUser.uid}/${timestamp}_large.jpg`);
+        const thumbStorageRef = ref(storage, `plates/${auth.currentUser.uid}/${timestamp}_thumb.jpg`);
+
+        // Subir ambas versiones
+        const [largeSnapshot, thumbSnapshot] = await Promise.all([
+          uploadBytes(largeStorageRef, largeImage),
+          uploadBytes(thumbStorageRef, thumbImage)
+        ]);
+
+        // Obtener URLs
+        [finalImageUrl, thumbnailUrl] = await Promise.all([
+          getDownloadURL(largeSnapshot.ref),
+          getDownloadURL(thumbSnapshot.ref)
+        ]);
       } else if (imageUrl) {
-        // Si hay URL de imagen pero no hay nueva imagen seleccionada
         hasImage = true;
+        finalImageUrl = imageUrl;
+        thumbnailUrl = imageUrl.replace('_large.jpg', '_thumb.jpg');
       }
 
       // Crear fecha de guardado de forma segura
@@ -589,14 +603,11 @@ const FoodAnalysisResult = React.memo(({
         })),
         userId: auth.currentUser.uid,
         isFavorite: isFavorite,
-        hasImage
+        hasImage,
+        imageUrl: finalImageUrl,
+        thumbnailUrl: thumbnailUrl,
+        imageHash
       };
-
-      if (hasImage) {
-        plateDoc.imageUrl = finalImageUrl;
-        plateDoc.thumbnailUrl = thumbnailUrl;
-        plateDoc.imageHash = imageHash;
-      }
 
       console.log('Documento final a guardar:', plateDoc);
 
@@ -638,12 +649,6 @@ const FoodAnalysisResult = React.memo(({
   const handleIngredientNameKeyPress = (e) => {
     if (e.key === 'Enter') {
       setEditingIngredientIndex(null);
-    }
-  };
-
-  const handleImageClick = (event) => {
-    if (isEditing) {
-      setMenuAnchorEl(event.currentTarget);
     }
   };
 
@@ -739,36 +744,31 @@ const FoodAnalysisResult = React.memo(({
           width: '100%',
           maxWidth: '100%'  // Asegurar que el Stack no se desborde
         }}>
-          <Box 
-            onClick={handleImageClick}
-            sx={{ 
-              width: '100%',
-              height: '100px',
-              backgroundImage: `url(${previewUrl})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              borderRadius: 1,
-              boxShadow: 1,
-              cursor: isEditing ? 'pointer' : 'default',
-              position: 'relative',
-              '&:hover': isEditing ? {
-                '&::after': {
-                  content: '"Opciones de imagen"',
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                  color: 'white',
-                  borderRadius: 1
-                }
-              } : {}
-            }}
-          />
+          {!isManualInput && (  // Solo mostrar la imagen si no es entrada manual
+            <Box
+              sx={{
+                width: '100%',
+                height: (selectedImage || imageUrl) ? 'auto' : 0,
+                overflow: 'hidden',
+                maxWidth: '100%'
+              }}
+            >
+              {(selectedImage || imageUrl) && (
+                <Box
+                  component="img"
+                  src={selectedImage ? URL.createObjectURL(selectedImage) : imageUrl}
+                  alt="Imagen del plato"
+                  sx={{
+                    width: '100%',
+                    height: 'auto',
+                    maxHeight: 400,
+                    objectFit: 'contain',
+                    borderRadius: 1
+                  }}
+                />
+              )}
+            </Box>
+          )}
 
           <Stack 
             direction="row" 

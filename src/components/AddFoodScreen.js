@@ -25,8 +25,6 @@ import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'fire
 import SparkMD5 from 'spark-md5';
 import { startOfDay, endOfDay } from 'date-fns';
 
-const PLACEHOLDER_IMAGE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='; // Imagen transparente 1x1
-
 const fetchWithRetry = async (url, options, maxRetries = 5, delay = 1000) => {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -233,47 +231,51 @@ function AddFoodScreen({ open, onClose, onImageAnalyzed, currentDate }) {
     setManualText('');
   };
 
-  const handleManualDialogSave = async () => {
-    if (manualText.trim()) {
-      setIsProcessing(true);
-      
+  const handleManualSubmit = async () => {
+    if (!manualText.trim()) {
+      setError('Por favor, introduce las instrucciones');
+      return;
+    }
+
+    setIsProcessing(true);
+    setError(null);
+
+    try {
       const requestData = {
         instructions: manualText.trim()
       };
 
-      try {
-        const response = await fetchWithRetry(
-          'https://hook.eu2.make.com/oopbrisdd2lvp1lgnnbxbixpu1p2sgew',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestData)
-          }
-        );
+      const response = await fetchWithRetry(
+        'https://hook.eu2.make.com/oopbrisdd2lvp1lgnnbxbixpu1p2sgew',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestData)
+        }
+      );
 
-        const responseText = await response.text();
-        const cleanJson = responseText
-          .replace(/^```json\n/, '')
-          .replace(/\n```$/, '');
+      const responseText = await response.text();
+      const cleanJson = responseText
+        .replace(/^```json\n/, '')
+        .replace(/\n```$/, '');
 
-        const parsedResponse = JSON.parse(cleanJson);
+      const parsedResponse = JSON.parse(cleanJson);
 
-        const response_img = await fetch(PLACEHOLDER_IMAGE);
-        const blob = await response_img.blob();
-        const placeholder_image = new File([blob], 'placeholder.png', { type: 'image/png' });
+      // Marcar que este plato fue creado manualmente
+      const analysisWithFlag = {
+        ...parsedResponse,
+        isManualInput: true
+      };
 
-        onImageAnalyzed(placeholder_image, parsedResponse);
-
-        handleManualDialogClose();
-        handleClose();
-      } catch (error) {
-        console.error('Error al procesar la comida:', error);
-        setError('Error al procesar la comida. Por favor, inténtalo de nuevo.');
-      } finally {
-        setIsProcessing(false);
-      }
+      onImageAnalyzed(null, analysisWithFlag);  // Pasar null como imagen y los datos con la flag
+      handleClose();
+    } catch (error) {
+      console.error('Error:', error);
+      setError('Error al procesar la comida. Por favor, inténtalo de nuevo.');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -479,7 +481,7 @@ function AddFoodScreen({ open, onClose, onImageAnalyzed, currentDate }) {
             Cancelar
           </Button>
           <Button 
-            onClick={handleManualDialogSave}
+            onClick={handleManualSubmit}
             variant="contained"
             disabled={!manualText.trim() || isProcessing}
           >
