@@ -522,6 +522,7 @@ const FoodAnalysisResult = React.memo(({
       let hasImage = false;
 
       if (selectedImage) {
+        console.log('Procesando nueva imagen seleccionada');
         hasImage = true;
         imageHash = await calculateImageHash(selectedImage);
         
@@ -531,26 +532,67 @@ const FoodAnalysisResult = React.memo(({
           resizeImage(selectedImage, 100)
         ]);
 
+        console.log('Imágenes redimensionadas');
+
         // Crear referencias únicas para cada versión
         const timestamp = Date.now();
         const largeStorageRef = ref(storage, `plates/${auth.currentUser.uid}/${timestamp}_large.jpg`);
         const thumbStorageRef = ref(storage, `plates/${auth.currentUser.uid}/${timestamp}_thumb.jpg`);
 
-        // Subir ambas versiones
-        const [largeSnapshot, thumbSnapshot] = await Promise.all([
-          uploadBytes(largeStorageRef, largeImage),
-          uploadBytes(thumbStorageRef, thumbImage)
-        ]);
+        console.log('Referencias creadas:', {
+          large: largeStorageRef.fullPath,
+          thumb: thumbStorageRef.fullPath
+        });
 
-        // Obtener URLs
-        [finalImageUrl, thumbnailUrl] = await Promise.all([
-          getDownloadURL(largeSnapshot.ref),
-          getDownloadURL(thumbSnapshot.ref)
-        ]);
+        try {
+          // Subir ambas versiones
+          const [largeSnapshot, thumbSnapshot] = await Promise.all([
+            uploadBytes(largeStorageRef, largeImage),
+            uploadBytes(thumbStorageRef, thumbImage)
+          ]);
+
+          console.log('Imágenes subidas correctamente');
+
+          // Obtener URLs
+          [finalImageUrl, thumbnailUrl] = await Promise.all([
+            getDownloadURL(largeSnapshot.ref),
+            getDownloadURL(thumbSnapshot.ref)
+          ]);
+
+          console.log('URLs obtenidas:', { finalImageUrl, thumbnailUrl });
+        } catch (uploadError) {
+          console.error('Error subiendo imágenes:', uploadError);
+          throw uploadError;
+        }
       } else if (imageUrl) {
+        console.log('Usando imagen existente:', imageUrl);
         hasImage = true;
-        finalImageUrl = imageUrl;
-        thumbnailUrl = imageUrl.replace('_large.jpg', '_thumb.jpg');
+        
+        // Extraer el path del archivo de la URL
+        const decodedUrl = decodeURIComponent(imageUrl);
+        const pathMatch = decodedUrl.match(/plates\/.*?\/\d+_large\.jpg/);
+        
+        if (pathMatch) {
+          finalImageUrl = imageUrl;
+          const thumbPath = pathMatch[0].replace('_large.jpg', '_thumb.jpg');
+          
+          try {
+            // Obtener nueva referencia y URL para el thumbnail
+            const thumbRef = ref(storage, thumbPath);
+            thumbnailUrl = await getDownloadURL(thumbRef);
+            console.log('Nueva URL de thumbnail obtenida');
+          } catch (error) {
+            console.error('Error obteniendo URL del thumbnail:', error);
+            // Si falla, usar la URL grande como fallback
+            thumbnailUrl = imageUrl;
+          }
+        } else {
+          // Si no podemos extraer el path, usar la misma URL
+          finalImageUrl = imageUrl;
+          thumbnailUrl = imageUrl;
+        }
+        
+        console.log('URLs generadas:', { finalImageUrl, thumbnailUrl });
       }
 
       // Crear fecha de guardado de forma segura
