@@ -206,7 +206,7 @@ function DailyTabs({
                   <ListItemAvatar>
                     <Avatar 
                       variant="rounded"
-                      src={meal.imageUrl}
+                      src={meal.thumbnailUrl || meal.imageUrl}
                       alt={meal.description}
                       sx={{ 
                         width: 56,

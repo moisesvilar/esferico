@@ -56,6 +56,37 @@ const FullScreenImage = styled('img')({
   objectFit: 'contain'
 });
 
+// Modificar la función resizeImage para generar dos versiones
+const resizeImage = (file, maxWidth = 1024) => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = URL.createObjectURL(file);
+    
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      // Calcular nueva altura manteniendo proporción
+      const scaleFactor = maxWidth / img.width;
+      const newHeight = img.height * scaleFactor;
+      
+      canvas.width = maxWidth;
+      canvas.height = newHeight;
+      
+      // Dibujar imagen redimensionada
+      ctx.drawImage(img, 0, 0, maxWidth, newHeight);
+      
+      // Convertir a Blob
+      canvas.toBlob((blob) => {
+        resolve(blob);
+      }, 'image/jpeg', 0.9);  // Usar JPEG con 90% de calidad
+      
+      // Liberar memoria
+      URL.revokeObjectURL(img.src);
+    };
+  });
+};
+
 const FoodAnalysisResult = React.memo(({ 
   analysisData, 
   selectedImage, 
@@ -105,13 +136,20 @@ const FoodAnalysisResult = React.memo(({
   const [isFavorite, setIsFavorite] = useState(analysisData.isFavorite || false);
 
   useEffect(() => {
-    if (selectedImage && !imageUrl) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setPreviewUrl(e.target.result);
-      };
-      reader.readAsDataURL(selectedImage);
-    }
+    const loadImage = async () => {
+      if (selectedImage && !imageUrl) {
+        // Nueva imagen seleccionada
+        const resizedImage = await resizeImage(selectedImage);
+        const reader = new FileReader();
+        reader.onload = (e) => setPreviewUrl(e.target.result);
+        reader.readAsDataURL(resizedImage);
+      } else if (imageUrl) {
+        // Imagen existente en edición
+        setPreviewUrl(imageUrl);
+      }
+    };
+
+    loadImage();
   }, [selectedImage, imageUrl]);
 
   const handleEditIngredient = useCallback((index) => {
@@ -375,12 +413,21 @@ const FoodAnalysisResult = React.memo(({
 
     try {
       let finalImageUrl = imageUrl;
+      let thumbnailUrl = imageUrl;  // Añadir URL para thumbnail
 
       // Solo subir imagen si hay una nueva
       if (selectedImage) {
-        const storageRef = ref(storage, `plates/${auth.currentUser.uid}/${Date.now()}.jpg`);
-        const imageSnapshot = await uploadBytes(storageRef, selectedImage);
-        finalImageUrl = await getDownloadURL(imageSnapshot.ref);
+        // Generar y subir versión grande
+        const largeImage = await resizeImage(selectedImage, 1024);
+        const largeStorageRef = ref(storage, `plates/${auth.currentUser.uid}/${Date.now()}_large.jpg`);
+        const largeSnapshot = await uploadBytes(largeStorageRef, largeImage);
+        finalImageUrl = await getDownloadURL(largeSnapshot.ref);
+
+        // Generar y subir versión thumbnail
+        const thumbImage = await resizeImage(selectedImage, 100);
+        const thumbStorageRef = ref(storage, `plates/${auth.currentUser.uid}/${Date.now()}_thumb.jpg`);
+        const thumbSnapshot = await uploadBytes(thumbStorageRef, thumbImage);
+        thumbnailUrl = await getDownloadURL(thumbSnapshot.ref);
       }
 
       const plateDoc = {
@@ -400,6 +447,7 @@ const FoodAnalysisResult = React.memo(({
           fats_weight: Number(component.fats_weight) || 0
         })),
         imageUrl: finalImageUrl,
+        thumbnailUrl: thumbnailUrl,  // Añadir URL del thumbnail
         userId: auth.currentUser.uid,
         createdAt: serverTimestamp(),
         isFavorite: plateData.isFavorite || false
@@ -449,6 +497,7 @@ const FoodAnalysisResult = React.memo(({
     setMenuAnchorEl(null);
   };
 
+  // Modificar handleChangeImage para usar la función de redimensionado
   const handleChangeImage = () => {
     handleMenuClose();
     const input = document.createElement('input');
@@ -457,17 +506,22 @@ const FoodAnalysisResult = React.memo(({
     
     input.onchange = async (e) => {
       if (e.target.files && e.target.files[0]) {
-        const newImage = e.target.files[0];
+        const originalImage = e.target.files[0];
         
         try {
+          // Redimensionar imagen
+          const resizedImage = await resizeImage(originalImage);
+          
+          // Mostrar preview
           const reader = new FileReader();
           reader.onload = (e) => {
             setPreviewUrl(e.target.result);
           };
-          reader.readAsDataURL(newImage);
+          reader.readAsDataURL(resizedImage);
 
+          // Subir imagen redimensionada
           const storageRef = ref(storage, `plates/${auth.currentUser.uid}/${Date.now()}.jpg`);
-          const imageSnapshot = await uploadBytes(storageRef, newImage);
+          const imageSnapshot = await uploadBytes(storageRef, resizedImage);
           const newImageUrl = await getDownloadURL(imageSnapshot.ref);
 
           setPlateData(prev => ({
