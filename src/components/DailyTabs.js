@@ -153,8 +153,8 @@ function DailyTabs({
   };
 
   const renderPlateImage = (plate) => {
-    // Usar siempre thumbnailUrl si existe, nunca la imagen grande
-    if (plate.hasImage && plate.thumbnailUrl) {
+    // 1. Si tiene thumbnailUrl, usar thumbnail
+    if (plate.thumbnailUrl) {
       return (
         <Box
           component="img"
@@ -166,11 +166,41 @@ function DailyTabs({
             borderRadius: 1,
             objectFit: 'cover'
           }}
+          onError={(e) => {
+            // Si falla el thumbnail, intentar con imageUrl
+            if (plate.imageUrl) {
+              e.target.src = plate.imageUrl;
+            } else {
+              // Si no hay imageUrl o también falla, ocultar la imagen
+              e.target.style.display = 'none';
+            }
+          }}
         />
       );
     }
 
-    // Si no hay imagen o es un plato manual, mostrar el icono de comida
+    // 2. Si no tiene thumbnail pero sí imageUrl, usar la imagen original
+    if (plate.imageUrl) {
+      return (
+        <Box
+          component="img"
+          src={plate.imageUrl}
+          alt={plate.description}
+          sx={{
+            width: 48,
+            height: 48,
+            borderRadius: 1,
+            objectFit: 'cover'
+          }}
+          onError={(e) => {
+            // Si falla la imagen, ocultar
+            e.target.style.display = 'none';
+          }}
+        />
+      );
+    }
+
+    // 3. Si no tiene ninguna imagen, mostrar el icono
     return (
       <Box
         sx={{
@@ -227,7 +257,10 @@ function DailyTabs({
                       bgcolor: 'action.hover'
                     }
                   }}
-                  onClick={() => onEditFood(meal)}
+                  onClick={() => {
+                    console.log('Plato a editar:', JSON.stringify(meal, null, 2));
+                    onEditFood(meal);
+                  }}
                 >
                   <ListItemAvatar>
                     {renderPlateImage(meal)}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { 
   Box, 
   Button, 
@@ -12,8 +12,7 @@ import {
   DialogContent,
   DialogActions,
   Menu,
-  MenuItem,
-  styled
+  MenuItem
 } from '@mui/material';
 import { Edit, Add, Check, Close, Delete, ZoomIn, Star, StarBorder } from '@mui/icons-material';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -49,13 +48,6 @@ const fetchWithRetry = async (url, options, maxRetries = 5, delay = 1000) => {
     }
   }
 };
-
-// Añadir styled component para la imagen ampliada
-const FullScreenImage = styled('img')({
-  maxWidth: '100%',
-  maxHeight: '90vh',
-  objectFit: 'contain'
-});
 
 // Modificar la función resizeImage para generar dos versiones
 const resizeImage = (file, maxWidth = 1024) => {
@@ -134,7 +126,6 @@ const FoodAnalysisResult = React.memo(({
   });
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
-  const [previewUrl, setPreviewUrl] = useState(imageUrl);
   const [isEditingDescription, setIsEditingDescription] = useState(!isEditing);
   const [editingIngredientIndex, setEditingIngredientIndex] = useState(null);
   const [manualEditText, setManualEditText] = useState('');
@@ -153,7 +144,6 @@ const FoodAnalysisResult = React.memo(({
       fats_weight: component.fats_weight
     }))
   );
-  const [menuAnchorEl, setMenuAnchorEl] = useState(null);
   const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
   const dialogTextFieldRef = useRef(null);
   const [isFavorite, setIsFavorite] = useState(analysisData.isFavorite || false);
@@ -182,38 +172,7 @@ const FoodAnalysisResult = React.memo(({
     }
   });
   const [dateError, setDateError] = useState(null);
-
-  useEffect(() => {
-    const loadImage = async () => {
-      if (selectedImage && !imageUrl) {
-        // Nueva imagen seleccionada
-        const resizedImage = await resizeImage(selectedImage);
-        const reader = new FileReader();
-        reader.onload = (e) => setPreviewUrl(e.target.result);
-        reader.readAsDataURL(resizedImage);
-      } else if (imageUrl) {
-        // Imagen existente en edición
-        setPreviewUrl(imageUrl);
-      }
-    };
-
-    loadImage();
-  }, [selectedImage, imageUrl]);
-
-  useEffect(() => {
-    if (!isEditing) {
-      try {
-        console.log('Actualizando fecha por cambio en currentDate:', currentDate);
-        const date = new Date();
-        if (currentDate instanceof Date && !isNaN(currentDate)) {
-          date.setTime(currentDate.getTime());
-        }
-        setSelectedDate(formatDateToISO(date));
-      } catch (error) {
-        console.error('Error actualizando fecha:', error);
-      }
-    }
-  }, [currentDate, isEditing]);
+  const [imageMenuAnchorEl, setImageMenuAnchorEl] = useState(null);
 
   const handleEditIngredient = useCallback((index) => {
     setDialogMode('edit');
@@ -577,22 +536,20 @@ const FoodAnalysisResult = React.memo(({
           const thumbPath = pathMatch[0].replace('_large.jpg', '_thumb.jpg');
           
           try {
-            // Obtener nueva referencia y URL para el thumbnail
+            // Intentar obtener el thumbnail
             const thumbRef = ref(storage, thumbPath);
             thumbnailUrl = await getDownloadURL(thumbRef);
             console.log('Nueva URL de thumbnail obtenida');
           } catch (error) {
-            console.error('Error obteniendo URL del thumbnail:', error);
-            // Si falla, usar la URL grande como fallback
+            console.log('No se encontró thumbnail, usando imagen grande');
             thumbnailUrl = imageUrl;
           }
         } else {
-          // Si no podemos extraer el path, usar la misma URL
-          finalImageUrl = imageUrl;
-          thumbnailUrl = imageUrl;
+          console.log('URL no tiene formato esperado, marcando sin imagen');
+          hasImage = false;
         }
         
-        console.log('URLs generadas:', { finalImageUrl, thumbnailUrl });
+        console.log('URLs finales:', { finalImageUrl, thumbnailUrl, hasImage });
       }
 
       // Crear fecha de guardado de forma segura
@@ -695,7 +652,7 @@ const FoodAnalysisResult = React.memo(({
   };
 
   const handleMenuClose = () => {
-    setMenuAnchorEl(null);
+    setImageMenuAnchorEl(null);
   };
 
   const handleChangeImage = () => {
@@ -709,17 +666,8 @@ const FoodAnalysisResult = React.memo(({
         const originalImage = e.target.files[0];
         
         try {
-          // Redimensionar imagen
+          // Redimensionar y subir imagen
           const resizedImage = await resizeImage(originalImage);
-          
-          // Mostrar preview
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            setPreviewUrl(e.target.result);
-          };
-          reader.readAsDataURL(resizedImage);
-
-          // Subir imagen redimensionada
           const storageRef = ref(storage, `plates/${auth.currentUser.uid}/${Date.now()}.jpg`);
           const imageSnapshot = await uploadBytes(storageRef, resizedImage);
           const newImageUrl = await getDownloadURL(imageSnapshot.ref);
@@ -728,7 +676,6 @@ const FoodAnalysisResult = React.memo(({
             ...prev,
             imageUrl: newImageUrl
           }));
-
         } catch (error) {
           console.error('Error updating image:', error);
           setError('Error al actualizar la imagen');
@@ -737,11 +684,6 @@ const FoodAnalysisResult = React.memo(({
     };
     
     input.click();
-  };
-
-  const handleExpandImage = () => {
-    handleMenuClose();
-    setIsImageDialogOpen(true);
   };
 
   const handleDeleteIngredient = (index) => {
@@ -769,6 +711,15 @@ const FoodAnalysisResult = React.memo(({
     }, 100);
   };
 
+  const handleImageClick = (event) => {
+    event.preventDefault();
+    setImageMenuAnchorEl(event.currentTarget);
+  };
+
+  const handleImageMenuClose = () => {
+    setImageMenuAnchorEl(null);
+  };
+
   return (
     <>
       <Box sx={{ 
@@ -790,22 +741,23 @@ const FoodAnalysisResult = React.memo(({
             <Box
               sx={{
                 width: '100%',
-                height: (selectedImage || imageUrl) ? 'auto' : 0,
+                height: imageUrl ? '100px' : 0,
                 overflow: 'hidden',
-                maxWidth: '100%'
+                borderRadius: 1,
+                backgroundColor: 'background.paper',
+                cursor: 'pointer'
               }}
             >
-              {(selectedImage || imageUrl) && (
+              {imageUrl && (
                 <Box
                   component="img"
-                  src={selectedImage ? URL.createObjectURL(selectedImage) : imageUrl}
+                  src={imageUrl}
                   alt="Imagen del plato"
+                  onClick={handleImageClick}
                   sx={{
                     width: '100%',
-                    height: 'auto',
-                    maxHeight: 400,
-                    objectFit: 'contain',
-                    borderRadius: 1
+                    height: '100px',
+                    objectFit: 'cover'
                   }}
                 />
               )}
@@ -1073,17 +1025,27 @@ const FoodAnalysisResult = React.memo(({
       </Box>
 
       <Menu
-        anchorEl={menuAnchorEl}
-        open={Boolean(menuAnchorEl)}
-        onClose={handleMenuClose}
+        anchorEl={imageMenuAnchorEl}
+        open={Boolean(imageMenuAnchorEl)}
+        onClose={handleImageMenuClose}
       >
-        <MenuItem onClick={handleChangeImage}>
+        <MenuItem 
+          onClick={() => {
+            handleChangeImage();
+            handleImageMenuClose();
+          }}
+        >
           <Edit fontSize="small" sx={{ mr: 1 }} />
           Cambiar imagen
         </MenuItem>
-        <MenuItem onClick={handleExpandImage}>
+        <MenuItem 
+          onClick={() => {
+            setIsImageDialogOpen(true);
+            handleImageMenuClose();
+          }}
+        >
           <ZoomIn fontSize="small" sx={{ mr: 1 }} />
-          Ampliar imagen
+          Ver imagen completa
         </MenuItem>
       </Menu>
 
@@ -1179,13 +1141,18 @@ const FoodAnalysisResult = React.memo(({
         maxWidth="xl"
         fullWidth
       >
-        <DialogTitle>
-          {plateData.description}
-        </DialogTitle>
         <DialogContent>
-          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-            <FullScreenImage src={previewUrl} alt={plateData.description} />
-          </Box>
+          <Box
+            component="img"
+            src={imageUrl}
+            alt={plateData.description}
+            sx={{
+              width: '100%',
+              height: 'auto',
+              maxHeight: '80vh',
+              objectFit: 'contain'
+            }}
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setIsImageDialogOpen(false)}>
