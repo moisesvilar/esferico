@@ -229,7 +229,6 @@ function DashboardScreen({ userName }) {
     return (
       <FoodAnalysisResult 
         analysisData={editingMeal}
-        selectedImage={null} // No necesitamos imagen nueva, usamos la URL existente
         currentDate={currentDate}
         onCancel={() => setEditingMeal(null)}
         onSuccess={() => {
@@ -238,6 +237,7 @@ function DashboardScreen({ userName }) {
         }}
         isEditing={true}
         imageUrl={editingMeal.imageUrl}
+        userCreationDate={userCreationDate}
       />
     );
   }
