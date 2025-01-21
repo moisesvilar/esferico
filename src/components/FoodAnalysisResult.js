@@ -762,7 +762,8 @@ const FoodAnalysisResult = React.memo(({
           <Stack spacing={2}>
             {plateData.components.map((ingredient, index) => (
               <Paper key={index} elevation={1} sx={{ p: 2 }}>
-                <Stack spacing={2}>
+                <Stack spacing={1}>
+                  {/* Primera fila: nombre y botón eliminar */}
                   <Box sx={{ 
                     display: 'flex', 
                     alignItems: 'center',
@@ -771,13 +772,13 @@ const FoodAnalysisResult = React.memo(({
                     {editingIngredientIndex === index ? (
                       <TextField
                         autoFocus
-                        fullWidth
                         value={ingredient.name}
                         onChange={(e) => handleIngredientNameChange(index, e.target.value)}
                         onBlur={handleIngredientNameBlur}
                         onKeyPress={handleIngredientNameKeyPress}
                         variant="standard"
                         sx={{ 
+                          flexGrow: 1,
                           '& input': { 
                             fontSize: '1rem',
                             fontWeight: 'normal'
@@ -789,104 +790,66 @@ const FoodAnalysisResult = React.memo(({
                         onClick={() => handleIngredientNameClick(index)}
                         sx={{ 
                           cursor: isEditing ? 'pointer' : 'default',
-                          '&:hover': isEditing ? {
-                            bgcolor: 'action.hover',
-                            borderRadius: 1,
-                            px: 1
-                          } : {},
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
                           flexGrow: 1
                         }}
                       >
                         {ingredient.name}
-                        {isEditing && (
-                          <Edit 
-                            fontSize="small" 
-                            sx={{ 
-                              ml: 1,
-                              color: 'text.secondary',
-                              fontSize: '0.8rem'
-                            }} 
-                          />
-                        )}
                       </Typography>
                     )}
-                    
                     <IconButton
                       size="small"
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDeleteIngredient(index);
                       }}
-                      sx={{ ml: 1 }}
                     >
                       <Delete fontSize="small" />
                     </IconButton>
                   </Box>
 
-                  <Stack direction="row" spacing={2}>
-                    <Box sx={{ flex: 1 }}>
-                      <TextField
-                        label="Peso (g)"
-                        type="number"
-                        value={ingredient.weight === 0 ? '' : ingredient.weight}
-                        onChange={(e) => handleIngredientChange(index, 'weight', e.target.value)}
-                        onBlur={() => {
-                          if (ingredient.weight === '') {
-                            handleIngredientChange(index, 'weight', '0');
-                          }
-                          handleWeightBlur(index);
-                        }}
-                        fullWidth
-                        size="small"
-                        inputProps={{
-                          min: 0,
-                          step: "1",
-                          inputMode: "numeric",
-                          pattern: "[0-9]*"
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            e.target.blur();
-                          }
-                        }}
-                      />
-                    </Box>
-                    <Box sx={{ flex: 1 }}>
-                      <TextField
-                        label="Kcal"
-                        type="number"
-                        value={ingredient.kcal === 0 ? '' : ingredient.kcal}
-                        onChange={(e) => handleIngredientChange(index, 'kcal', e.target.value)}
-                        fullWidth
-                        size="small"
-                        inputProps={{
-                          min: 0,
-                          step: "1",
-                          inputMode: "numeric",
-                          pattern: "[0-9]*"
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            e.target.blur();
-                          }
-                        }}
-                      />
-                    </Box>
-                  </Stack>
-
-                  <Button
-                    variant="outlined"
-                    startIcon={<Edit />}
-                    onClick={() => handleEditIngredient(index)}
-                    fullWidth
-                  >
-                    Editar manualmente
-                  </Button>
+                  {/* Segunda fila: campos numéricos y botón editar */}
+                  <Box sx={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: '1fr 1fr auto',
+                    gap: 1,
+                    alignItems: 'center'
+                  }}>
+                    <TextField
+                      label="Peso (g)"
+                      type="number"
+                      value={ingredient.weight === 0 ? '' : ingredient.weight}
+                      onChange={(e) => handleIngredientChange(index, 'weight', e.target.value)}
+                      onBlur={() => {
+                        if (ingredient.weight === '') {
+                          handleIngredientChange(index, 'weight', '0');
+                        }
+                        handleWeightBlur(index);
+                      }}
+                      size="small"
+                      inputProps={{
+                        min: 0,
+                        step: "1"
+                      }}
+                    />
+                    <TextField
+                      label="Kcal"
+                      type="number"
+                      value={ingredient.kcal === 0 ? '' : ingredient.kcal}
+                      onChange={(e) => handleIngredientChange(index, 'kcal', e.target.value)}
+                      size="small"
+                      inputProps={{
+                        min: 0,
+                        step: "1"
+                      }}
+                    />
+                    <IconButton
+                      onClick={() => handleEditIngredient(index)}
+                      color="primary"
+                      size="small"
+                    >
+                      <Edit fontSize="small" />
+                    </IconButton>
+                  </Box>
                 </Stack>
               </Paper>
             ))}
