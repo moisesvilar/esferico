@@ -258,6 +258,7 @@ function DashboardScreen({ userName }) {
           setSelectedImage(null);
           handleFoodAdded();
         }}
+        userCreationDate={userCreationDate}
       />
     );
   }

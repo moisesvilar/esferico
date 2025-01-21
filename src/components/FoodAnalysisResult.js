@@ -100,6 +100,14 @@ const calculateImageHash = (file) => {
   });
 };
 
+// Función auxiliar para formatear fecha
+const formatDateToISO = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const FoodAnalysisResult = React.memo(({ 
   analysisData, 
   selectedImage, 
@@ -150,22 +158,26 @@ const FoodAnalysisResult = React.memo(({
   const [isFavorite, setIsFavorite] = useState(analysisData.isFavorite || false);
   const [selectedDate, setSelectedDate] = useState(() => {
     try {
-      if (isEditing) {
+      console.log('Inicializando selectedDate:', {
+        isEditing,
+        currentDate,
+        analysisData: isEditing ? analysisData : 'no editing'
+      });
+
+      if (isEditing && analysisData.date) {
         const editDate = new Date(analysisData.date);
-        return editDate.toISOString().split('T')[0];
+        return formatDateToISO(editDate);
       } else {
-        const newDate = new Date(currentDate.getTime());
-        console.log('Fecha inicial:', {
-          currentDate: currentDate.toISOString(),
-          newDate: newDate.toISOString()
-        });
-        return newDate.toISOString().split('T')[0];
+        // Asegurarnos de que currentDate es una fecha válida
+        const date = new Date();
+        if (currentDate instanceof Date && !isNaN(currentDate)) {
+          date.setTime(currentDate.getTime());
+        }
+        return formatDateToISO(date);
       }
     } catch (error) {
       console.error('Error inicializando fecha:', error);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      return today.toISOString().split('T')[0];
+      return formatDateToISO(new Date());
     }
   });
   const [dateError, setDateError] = useState(null);
@@ -189,9 +201,16 @@ const FoodAnalysisResult = React.memo(({
 
   useEffect(() => {
     if (!isEditing) {
-      const newDate = new Date(currentDate.getTime());
-      setSelectedDate(newDate.toISOString().split('T')[0]);
-      console.log('Actualizando fecha por cambio en currentDate:', newDate.toISOString());
+      try {
+        console.log('Actualizando fecha por cambio en currentDate:', currentDate);
+        const date = new Date();
+        if (currentDate instanceof Date && !isNaN(currentDate)) {
+          date.setTime(currentDate.getTime());
+        }
+        setSelectedDate(formatDateToISO(date));
+      } catch (error) {
+        console.error('Error actualizando fecha:', error);
+      }
     }
   }, [currentDate, isEditing]);
 
@@ -454,28 +473,20 @@ const FoodAnalysisResult = React.memo(({
     if (!dateString) return 'La fecha es obligatoria';
     
     try {
-      // Crear fechas a las 00:00:00 para comparar solo días
       const [year, month, day] = dateString.split('-').map(Number);
-      const date = new Date(year, month - 1, day, 0, 0, 0, 0); // Los meses en JS van de 0-11
+      const date = new Date(year, month - 1, day, 0, 0, 0, 0);
       
       // Validar que la fecha es válida
       if (isNaN(date.getTime())) {
-        console.error('Fecha inválida:', dateString);
         return 'Fecha inválida';
       }
       
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      const creationDate = new Date(userCreationDate);
+      // Si no tenemos fecha de creación, usar una fecha por defecto
+      const creationDate = userCreationDate ? new Date(userCreationDate) : new Date(2024, 0, 1);
       creationDate.setHours(0, 0, 0, 0);
-      
-      console.log('Comparando fechas:', {
-        dateString,
-        date: date.toLocaleDateString(),
-        today: today.toLocaleDateString(),
-        creationDate: creationDate.toLocaleDateString()
-      });
       
       if (date < creationDate) {
         return 'La fecha no puede ser anterior a la creación de tu cuenta';
@@ -493,52 +504,13 @@ const FoodAnalysisResult = React.memo(({
   };
 
   const handleSave = async () => {
-    console.log('Iniciando handleSave');
-    console.log('Estado actual:', {
-      plateData,
-      selectedDate,
-      isEditing,
-      isSaving,
-      error
-    });
-
-    // Validar fecha
+    console.log('Iniciando guardado con fecha:', selectedDate);
     const dateValidationError = validateDate(selectedDate);
-    console.log('Validación de fecha:', { selectedDate, dateValidationError });
     if (dateValidationError) {
       setDateError(dateValidationError);
-      console.log('Error en fecha:', dateValidationError);
       return;
     }
 
-    // Validar descripción
-    console.log('Validando descripción:', plateData.description);
-    if (!plateData.description?.trim()) {
-      setError('El nombre del plato es obligatorio');
-      console.log('Error: nombre del plato vacío');
-      return;
-    }
-
-    // Validar que hay al menos un ingrediente
-    console.log('Validando ingredientes:', plateData.components);
-    if (!plateData.components?.length) {
-      setError('Debe haber al menos un ingrediente');
-      console.log('Error: no hay ingredientes');
-      return;
-    }
-
-    // Validar que todos los ingredientes tienen nombre y peso
-    const invalidIngredient = plateData.components.find(
-      component => !component.name?.trim() || !component.weight
-    );
-    console.log('Ingrediente inválido:', invalidIngredient);
-    if (invalidIngredient) {
-      setError('Todos los ingredientes deben tener nombre y peso');
-      console.log('Error: ingrediente inválido encontrado');
-      return;
-    }
-
-    console.log('Todas las validaciones pasadas, procediendo a guardar');
     setIsSaving(true);
     setError(null);
 
@@ -546,13 +518,13 @@ const FoodAnalysisResult = React.memo(({
       let finalImageUrl = imageUrl;
       let thumbnailUrl = imageUrl;
       let imageHash = null;
+      let hasImage = false;
 
       if (selectedImage) {
-        console.log('Procesando imagen nueva');
-        // Calcular hash de la imagen original
+        hasImage = true;
         imageHash = await calculateImageHash(selectedImage);
-
-        // Generar y subir versiones de la imagen
+        
+        // Procesar imagen solo si hay una nueva
         const largeImage = await resizeImage(selectedImage, 1024);
         const largeStorageRef = ref(storage, `plates/${auth.currentUser.uid}/${Date.now()}_large.jpg`);
         const largeSnapshot = await uploadBytes(largeStorageRef, largeImage);
@@ -562,13 +534,45 @@ const FoodAnalysisResult = React.memo(({
         const thumbStorageRef = ref(storage, `plates/${auth.currentUser.uid}/${Date.now()}_thumb.jpg`);
         const thumbSnapshot = await uploadBytes(thumbStorageRef, thumbImage);
         thumbnailUrl = await getDownloadURL(thumbSnapshot.ref);
+      } else if (imageUrl) {
+        // Si hay URL de imagen pero no hay nueva imagen seleccionada
+        hasImage = true;
       }
 
-      const [year, month, day] = selectedDate.split('-').map(Number);
-      const saveDate = new Date(year, month - 1, day, 12, 0, 0, 0); // Usar mediodía para evitar problemas de zona horaria
+      // Crear fecha de guardado de forma segura
+      let saveDate;
+      try {
+        if (isEditing) {
+          // En modo edición, usar la fecha seleccionada
+          const [year, month, day] = selectedDate.split('-').map(Number);
+          // Crear la fecha en la zona horaria local
+          saveDate = new Date(year, month - 1, day, 12, 0, 0, 0);
+        } else {
+          // En modo creación, usar la fecha de navegación
+          saveDate = new Date(currentDate);
+          saveDate.setHours(12, 0, 0, 0);
+        }
+
+        // Ajustar por la zona horaria
+        const offset = saveDate.getTimezoneOffset();
+        saveDate = new Date(saveDate.getTime() - (offset * 60 * 1000));
+        
+        console.log('Fecha de guardado creada:', {
+          date: saveDate,
+          isoString: saveDate.toISOString(),
+          localString: saveDate.toLocaleString()
+        });
+      } catch (dateError) {
+        console.error('Error creando fecha de guardado:', dateError);
+        // Usar fecha actual como fallback
+        saveDate = new Date();
+        saveDate.setHours(12, 0, 0, 0);
+        const offset = saveDate.getTimezoneOffset();
+        saveDate = new Date(saveDate.getTime() - (offset * 60 * 1000));
+      }
 
       const plateDoc = {
-        date: saveDate.toISOString(), // Esto asegura una fecha válida
+        date: saveDate.toISOString(),  // Esto guardará la fecha correcta en UTC
         description: plateData.description.trim(),
         total_kcal: Number(plateData.total_kcal) || 0,
         total_weight: Number(plateData.total_weight) || 0,
@@ -583,35 +587,33 @@ const FoodAnalysisResult = React.memo(({
           carbohydrates_weight: Number(component.carbohydrates_weight) || 0,
           fats_weight: Number(component.fats_weight) || 0
         })),
-        imageUrl: finalImageUrl,
-        thumbnailUrl: thumbnailUrl,
-        imageHash: imageHash,
         userId: auth.currentUser.uid,
-        isFavorite: isFavorite
+        isFavorite: isFavorite,
+        hasImage
       };
 
-      console.log('Documento a guardar:', plateDoc);
-
-      if (isEditing) {
-        console.log('Modo edición - ID:', analysisData.id);
-        plateDoc.createdAt = analysisData.createdAt;
-        await setDoc(doc(db, 'plates', analysisData.id), plateDoc);
-        console.log('Plato editado guardado correctamente');
-      } else {
-        console.log('Modo creación');
-        plateDoc.createdAt = serverTimestamp();
-        const docRef = await addDoc(collection(db, 'plates'), plateDoc);
-        console.log('Plato nuevo guardado correctamente - ID:', docRef.id);
+      if (hasImage) {
+        plateDoc.imageUrl = finalImageUrl;
+        plateDoc.thumbnailUrl = thumbnailUrl;
+        plateDoc.imageHash = imageHash;
       }
 
-      console.log('Llamando a onSuccess');
+      console.log('Documento final a guardar:', plateDoc);
+
+      if (isEditing) {
+        plateDoc.createdAt = analysisData.createdAt;
+        await setDoc(doc(db, 'plates', analysisData.id), plateDoc);
+      } else {
+        plateDoc.createdAt = serverTimestamp();
+        await addDoc(collection(db, 'plates'), plateDoc);
+      }
+
       onSuccess();
     } catch (error) {
-      console.error('Error guardando el plato:', error);
+      console.error('Error completo:', error);
       setError('Error al guardar los datos. Por favor, inténtalo de nuevo.');
     } finally {
       setIsSaving(false);
-      console.log('Proceso de guardado finalizado');
     }
   };
 
@@ -805,29 +807,28 @@ const FoodAnalysisResult = React.memo(({
             </Stack>
           </Stack>
 
-          {isEditing && (
-            <TextField
-              type="date"
-              label="Fecha del plato"
-              value={selectedDate}
-              onChange={(e) => {
-                const newDate = e.target.value;
-                setSelectedDate(newDate);
-                setDateError(validateDate(newDate));
-              }}
-              error={!!dateError}
-              helperText={dateError}
-              InputLabelProps={{
-                shrink: true,
-              }}
-              inputProps={{
-                min: new Date(userCreationDate).toISOString().split('T')[0],
-                max: new Date().toISOString().split('T')[0]
-              }}
-              fullWidth
-              size="small"
-            />
-          )}
+          <TextField
+            type="date"
+            label="Fecha del plato"
+            value={selectedDate}
+            onChange={(e) => {
+              const newDate = e.target.value;
+              setSelectedDate(newDate);
+              setDateError(validateDate(newDate));
+            }}
+            error={!!dateError}
+            helperText={dateError}
+            InputLabelProps={{
+              shrink: true,
+            }}
+            inputProps={{
+              min: new Date(userCreationDate).toISOString().split('T')[0],
+              max: new Date().toISOString().split('T')[0]
+            }}
+            fullWidth
+            size="small"
+            disabled={!isEditing}
+          />
 
           <Stack spacing={2}>
             {plateData.components.map((ingredient, index) => (
