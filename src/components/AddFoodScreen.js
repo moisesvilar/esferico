@@ -22,6 +22,8 @@ import AnalyzingFood from './AnalyzingFood';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage, auth, db } from '../config/firebase';
 import { collection, query, where, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import SparkMD5 from 'spark-md5';
+import { startOfDay, endOfDay } from 'date-fns';
 
 const PLACEHOLDER_IMAGE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='; // Imagen transparente 1x1
 
@@ -97,6 +99,37 @@ function AddFoodScreen({ open, onClose, onImageAnalyzed, currentDate }) {
       setIsUploading(true);
       setError(null);
 
+      // Calcular hash de la imagen
+      const imageHash = await calculateImageHash(file);
+
+      // Buscar platos con el mismo hash del día actual
+      const start = startOfDay(currentDate).toISOString();
+      const end = endOfDay(currentDate).toISOString();
+      
+      const duplicatesQuery = query(
+        collection(db, 'plates'),
+        where('userId', '==', auth.currentUser.uid),
+        where('imageHash', '==', imageHash),
+        where('date', '>=', start),
+        where('date', '<=', end)
+      );
+
+      const duplicatesSnapshot = await getDocs(duplicatesQuery);
+
+      if (!duplicatesSnapshot.empty) {
+        // Usar datos del plato existente
+        const existingPlate = duplicatesSnapshot.docs[0].data();
+        onImageAnalyzed(file, {
+          ...existingPlate,
+          description: `Copia de ${existingPlate.description}`,
+          id: undefined,
+          date: undefined,
+          createdAt: undefined
+        });
+        setIsUploading(false);
+        return;
+      }
+
       // Subir la imagen a Firebase Storage
       const storageRef = ref(storage, `plates/${auth.currentUser.uid}/${Date.now()}.jpg`);
       const uploadResult = await uploadBytes(storageRef, file);
@@ -109,7 +142,7 @@ function AddFoodScreen({ open, onClose, onImageAnalyzed, currentDate }) {
       formData.append('image', file);
       formData.append('imageUrl', imageUrl);
 
-      // Hacer la petición al servidor de análisis usando el endpoint correcto
+      // Hacer la petición al servidor de análisis
       const response = await fetchWithRetry(
         'https://hook.eu2.make.com/d2j15f81g7x85o1mfl2crku1ruulqzul',
         {
@@ -135,6 +168,17 @@ function AddFoodScreen({ open, onClose, onImageAnalyzed, currentDate }) {
     } finally {
       setIsUploading(false);
     }
+  };
+
+  const calculateImageHash = (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsBinaryString(file);
+      reader.onload = () => {
+        const hash = SparkMD5.hash(reader.result);
+        resolve(hash);
+      };
+    });
   };
 
   const handleCameraClick = async () => {

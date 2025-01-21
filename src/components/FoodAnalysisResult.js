@@ -19,6 +19,7 @@ import { Edit, Add, Check, Close, Delete, ZoomIn, Star, StarBorder } from '@mui/
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp, setDoc, doc } from 'firebase/firestore';
 import { auth, storage, db } from '../config/firebase';
+import SparkMD5 from 'spark-md5';  // Añadir esta importación
 
 // Añadir esta función de utilidad fuera del componente
 const fetchWithRetry = async (url, options, maxRetries = 5, delay = 1000) => {
@@ -83,6 +84,18 @@ const resizeImage = (file, maxWidth = 1024) => {
       
       // Liberar memoria
       URL.revokeObjectURL(img.src);
+    };
+  });
+};
+
+// Función para calcular MD5 de una imagen
+const calculateImageHash = (file) => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsBinaryString(file);
+    reader.onload = () => {
+      const hash = SparkMD5.hash(reader.result);
+      resolve(hash);
     };
   });
 };
@@ -413,17 +426,19 @@ const FoodAnalysisResult = React.memo(({
 
     try {
       let finalImageUrl = imageUrl;
-      let thumbnailUrl = imageUrl;  // Añadir URL para thumbnail
+      let thumbnailUrl = imageUrl;
+      let imageHash = null;
 
-      // Solo subir imagen si hay una nueva
       if (selectedImage) {
-        // Generar y subir versión grande
+        // Calcular hash de la imagen original
+        imageHash = await calculateImageHash(selectedImage);
+
+        // Generar y subir versiones de la imagen
         const largeImage = await resizeImage(selectedImage, 1024);
         const largeStorageRef = ref(storage, `plates/${auth.currentUser.uid}/${Date.now()}_large.jpg`);
         const largeSnapshot = await uploadBytes(largeStorageRef, largeImage);
         finalImageUrl = await getDownloadURL(largeSnapshot.ref);
 
-        // Generar y subir versión thumbnail
         const thumbImage = await resizeImage(selectedImage, 100);
         const thumbStorageRef = ref(storage, `plates/${auth.currentUser.uid}/${Date.now()}_thumb.jpg`);
         const thumbSnapshot = await uploadBytes(thumbStorageRef, thumbImage);
@@ -447,7 +462,8 @@ const FoodAnalysisResult = React.memo(({
           fats_weight: Number(component.fats_weight) || 0
         })),
         imageUrl: finalImageUrl,
-        thumbnailUrl: thumbnailUrl,  // Añadir URL del thumbnail
+        thumbnailUrl: thumbnailUrl,
+        imageHash: imageHash,  // Añadir el hash
         userId: auth.currentUser.uid,
         createdAt: serverTimestamp(),
         isFavorite: plateData.isFavorite || false
