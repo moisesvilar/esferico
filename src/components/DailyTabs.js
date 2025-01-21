@@ -44,18 +44,9 @@ function DailyTabs({
 }) {
   const [tabIndex, setTabIndex] = useState(defaultTab);
   const [meals, setMeals] = useState([]);
-  const [mealToDelete, setMealToDelete] = useState(null);
   const [activities, setActivities] = useState([]);
+  const [mealToDelete, setMealToDelete] = useState(null);
   const [activityToDelete, setActivityToDelete] = useState(null);
-
-  const formatTime = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString('es-ES', { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: false 
-    });
-  };
 
   useEffect(() => {
     const fetchMeals = async () => {
@@ -252,13 +243,6 @@ function DailyTabs({
                           color="text.secondary"
                         >
                           {meal.total_weight}g · {meal.total_kcal} kcal
-                        </Typography>
-                        <Typography 
-                          component="span" 
-                          variant="caption" 
-                          color="text.secondary"
-                        >
-                          {formatTime(meal.date)}
                         </Typography>
                       </Stack>
                     }
