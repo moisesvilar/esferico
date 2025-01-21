@@ -81,7 +81,7 @@ const FoodAnalysisResult = React.memo(({
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(imageUrl);
-  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [isEditingDescription, setIsEditingDescription] = useState(!isEditing);
   const [editingIngredientIndex, setEditingIngredientIndex] = useState(null);
   const [manualEditText, setManualEditText] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -563,6 +563,8 @@ const FoodAnalysisResult = React.memo(({
                 fullWidth
                 size="small"
                 sx={{ mr: 1 }}
+                placeholder="Nombre del plato"
+                autoFocus
               />
             ) : (
               <Typography variant="h6">
@@ -577,13 +579,11 @@ const FoodAnalysisResult = React.memo(({
               >
                 {isFavorite ? <Star /> : <StarBorder />}
               </IconButton>
-              {isEditing && (
-                <IconButton 
-                  onClick={() => setIsEditingDescription(!isEditingDescription)}
-                >
-                  {isEditingDescription ? <Check /> : <Edit />}
-                </IconButton>
-              )}
+              <IconButton 
+                onClick={() => setIsEditingDescription(!isEditingDescription)}
+              >
+                {isEditingDescription ? <Check /> : <Edit />}
+              </IconButton>
             </Stack>
           </Stack>
 
