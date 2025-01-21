@@ -257,10 +257,7 @@ function DailyTabs({
                       bgcolor: 'action.hover'
                     }
                   }}
-                  onClick={() => {
-                    console.log('Plato a editar:', JSON.stringify(meal, null, 2));
-                    onEditFood(meal);
-                  }}
+                  onClick={() => onEditFood(meal)}
                 >
                   <ListItemAvatar>
                     {renderPlateImage(meal)}

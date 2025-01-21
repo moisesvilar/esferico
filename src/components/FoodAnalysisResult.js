@@ -14,7 +14,7 @@ import {
   Menu,
   MenuItem
 } from '@mui/material';
-import { Edit, Add, Check, Close, Delete, ZoomIn, Star, StarBorder } from '@mui/icons-material';
+import { Edit, Add, Check, Close, Delete, Star, StarBorder } from '@mui/icons-material';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp, setDoc, doc } from 'firebase/firestore';
 import { auth, storage, db } from '../config/firebase';
@@ -28,8 +28,6 @@ const fetchWithRetry = async (url, options, maxRetries = 5, delay = 1000) => {
       if (response.ok) {
         return response;
       }
-      
-      console.log(`Intento ${attempt} fallido. Estado: ${response.status}`);
       
       if (attempt === maxRetries) {
         throw new Error(`Error en la llamada al servidor después de ${maxRetries} intentos: ${response.status} ${response.statusText}`);
@@ -149,17 +147,10 @@ const FoodAnalysisResult = React.memo(({
   const [isFavorite, setIsFavorite] = useState(analysisData.isFavorite || false);
   const [selectedDate, setSelectedDate] = useState(() => {
     try {
-      console.log('Inicializando selectedDate:', {
-        isEditing,
-        currentDate,
-        analysisData: isEditing ? analysisData : 'no editing'
-      });
-
       if (isEditing && analysisData.date) {
         const editDate = new Date(analysisData.date);
         return formatDateToISO(editDate);
       } else {
-        // Asegurarnos de que currentDate es una fecha válida
         const date = new Date();
         if (currentDate instanceof Date && !isNaN(currentDate)) {
           date.setTime(currentDate.getTime());
@@ -167,12 +158,13 @@ const FoodAnalysisResult = React.memo(({
         return formatDateToISO(date);
       }
     } catch (error) {
-      console.error('Error inicializando fecha:', error);
       return formatDateToISO(new Date());
     }
   });
   const [dateError, setDateError] = useState(null);
   const [imageMenuAnchorEl, setImageMenuAnchorEl] = useState(null);
+  const [selectedImagePreview, setSelectedImagePreview] = useState(null);  // Para mostrar la imagen seleccionada
+  const [pendingImage, setPendingImage] = useState(null);  // Para guardar el archivo seleccionado
 
   const handleEditIngredient = useCallback((index) => {
     setDialogMode('edit');
@@ -464,7 +456,6 @@ const FoodAnalysisResult = React.memo(({
   };
 
   const handleSave = async () => {
-    console.log('Iniciando guardado con fecha:', selectedDate);
     const dateValidationError = validateDate(selectedDate);
     if (dateValidationError) {
       setDateError(dateValidationError);
@@ -480,104 +471,54 @@ const FoodAnalysisResult = React.memo(({
       let imageHash = null;
       let hasImage = false;
 
-      if (selectedImage) {
-        console.log('Procesando nueva imagen seleccionada');
+      // Si hay una imagen pendiente de subir
+      if (pendingImage) {
         hasImage = true;
-        imageHash = await calculateImageHash(selectedImage);
+        imageHash = await calculateImageHash(pendingImage);
         
         // Subir versión grande y pequeña por separado
         const [largeImage, thumbImage] = await Promise.all([
-          resizeImage(selectedImage, 1024),
-          resizeImage(selectedImage, 100)
+          resizeImage(pendingImage, 1024),
+          resizeImage(pendingImage, 100)
         ]);
-
-        console.log('Imágenes redimensionadas');
 
         // Crear referencias únicas para cada versión
         const timestamp = Date.now();
         const largeStorageRef = ref(storage, `plates/${auth.currentUser.uid}/${timestamp}_large.jpg`);
         const thumbStorageRef = ref(storage, `plates/${auth.currentUser.uid}/${timestamp}_thumb.jpg`);
 
-        console.log('Referencias creadas:', {
-          large: largeStorageRef.fullPath,
-          thumb: thumbStorageRef.fullPath
-        });
+        // Subir ambas versiones
+        const [largeSnapshot, thumbSnapshot] = await Promise.all([
+          uploadBytes(largeStorageRef, largeImage),
+          uploadBytes(thumbStorageRef, thumbImage)
+        ]);
 
-        try {
-          // Subir ambas versiones
-          const [largeSnapshot, thumbSnapshot] = await Promise.all([
-            uploadBytes(largeStorageRef, largeImage),
-            uploadBytes(thumbStorageRef, thumbImage)
-          ]);
-
-          console.log('Imágenes subidas correctamente');
-
-          // Obtener URLs
-          [finalImageUrl, thumbnailUrl] = await Promise.all([
-            getDownloadURL(largeSnapshot.ref),
-            getDownloadURL(thumbSnapshot.ref)
-          ]);
-
-          console.log('URLs obtenidas:', { finalImageUrl, thumbnailUrl });
-        } catch (uploadError) {
-          console.error('Error subiendo imágenes:', uploadError);
-          throw uploadError;
-        }
+        // Obtener URLs
+        [finalImageUrl, thumbnailUrl] = await Promise.all([
+          getDownloadURL(largeSnapshot.ref),
+          getDownloadURL(thumbSnapshot.ref)
+        ]);
       } else if (imageUrl) {
-        console.log('Usando imagen existente:', imageUrl);
+        // Mantener las URLs existentes si hay
         hasImage = true;
-        
-        // Extraer el path del archivo de la URL
-        const decodedUrl = decodeURIComponent(imageUrl);
-        const pathMatch = decodedUrl.match(/plates\/.*?\/\d+_large\.jpg/);
-        
-        if (pathMatch) {
-          finalImageUrl = imageUrl;
-          const thumbPath = pathMatch[0].replace('_large.jpg', '_thumb.jpg');
-          
-          try {
-            // Intentar obtener el thumbnail
-            const thumbRef = ref(storage, thumbPath);
-            thumbnailUrl = await getDownloadURL(thumbRef);
-            console.log('Nueva URL de thumbnail obtenida');
-          } catch (error) {
-            console.log('No se encontró thumbnail, usando imagen grande');
-            thumbnailUrl = imageUrl;
-          }
-        } else {
-          console.log('URL no tiene formato esperado, marcando sin imagen');
-          hasImage = false;
-        }
-        
-        console.log('URLs finales:', { finalImageUrl, thumbnailUrl, hasImage });
+        finalImageUrl = imageUrl;
+        thumbnailUrl = imageUrl.replace('_large.jpg', '_thumb.jpg');
       }
 
       // Crear fecha de guardado de forma segura
       let saveDate;
       try {
         if (isEditing) {
-          // En modo edición, usar la fecha seleccionada
           const [year, month, day] = selectedDate.split('-').map(Number);
-          // Crear la fecha en la zona horaria local
           saveDate = new Date(year, month - 1, day, 12, 0, 0, 0);
         } else {
-          // En modo creación, usar la fecha de navegación
           saveDate = new Date(currentDate);
           saveDate.setHours(12, 0, 0, 0);
         }
 
-        // Ajustar por la zona horaria
         const offset = saveDate.getTimezoneOffset();
         saveDate = new Date(saveDate.getTime() - (offset * 60 * 1000));
-        
-        console.log('Fecha de guardado creada:', {
-          date: saveDate,
-          isoString: saveDate.toISOString(),
-          localString: saveDate.toLocaleString()
-        });
       } catch (dateError) {
-        console.error('Error creando fecha de guardado:', dateError);
-        // Usar fecha actual como fallback
         saveDate = new Date();
         saveDate.setHours(12, 0, 0, 0);
         const offset = saveDate.getTimezoneOffset();
@@ -608,8 +549,6 @@ const FoodAnalysisResult = React.memo(({
         imageHash
       };
 
-      console.log('Documento final a guardar:', plateDoc);
-
       if (isEditing) {
         plateDoc.createdAt = analysisData.createdAt;
         await setDoc(doc(db, 'plates', analysisData.id), plateDoc);
@@ -620,7 +559,6 @@ const FoodAnalysisResult = React.memo(({
 
       onSuccess();
     } catch (error) {
-      console.error('Error completo:', error);
       setError('Error al guardar los datos. Por favor, inténtalo de nuevo.');
     } finally {
       setIsSaving(false);
@@ -651,35 +589,20 @@ const FoodAnalysisResult = React.memo(({
     }
   };
 
-  const handleMenuClose = () => {
-    setImageMenuAnchorEl(null);
-  };
-
   const handleChangeImage = () => {
-    handleMenuClose();
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
     
     input.onchange = async (e) => {
       if (e.target.files && e.target.files[0]) {
-        const originalImage = e.target.files[0];
+        const file = e.target.files[0];
+        setPendingImage(file);  // Guardar el archivo para subirlo después
         
-        try {
-          // Redimensionar y subir imagen
-          const resizedImage = await resizeImage(originalImage);
-          const storageRef = ref(storage, `plates/${auth.currentUser.uid}/${Date.now()}.jpg`);
-          const imageSnapshot = await uploadBytes(storageRef, resizedImage);
-          const newImageUrl = await getDownloadURL(imageSnapshot.ref);
-
-          setPlateData(prev => ({
-            ...prev,
-            imageUrl: newImageUrl
-          }));
-        } catch (error) {
-          console.error('Error updating image:', error);
-          setError('Error al actualizar la imagen');
-        }
+        // Crear preview
+        const reader = new FileReader();
+        reader.onload = (e) => setSelectedImagePreview(e.target.result);
+        reader.readAsDataURL(file);
       }
     };
     
@@ -741,25 +664,37 @@ const FoodAnalysisResult = React.memo(({
             <Box
               sx={{
                 width: '100%',
-                height: imageUrl ? '100px' : 0,
+                height: imageUrl ? '100px' : 'auto',
                 overflow: 'hidden',
                 borderRadius: 1,
                 backgroundColor: 'background.paper',
-                cursor: 'pointer'
               }}
             >
-              {imageUrl && (
+              {selectedImagePreview || imageUrl ? (
+                // Mostrar la imagen seleccionada o la existente
                 <Box
                   component="img"
-                  src={imageUrl}
+                  src={selectedImagePreview || imageUrl}
                   alt="Imagen del plato"
                   onClick={handleImageClick}
                   sx={{
                     width: '100%',
                     height: '100px',
-                    objectFit: 'cover'
+                    objectFit: 'cover',
+                    cursor: 'pointer'
                   }}
                 />
+              ) : (
+                // Botón para añadir imagen
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  startIcon={<Add />}
+                  onClick={handleChangeImage}
+                  sx={{ height: '48px' }}
+                >
+                  Añadir imagen
+                </Button>
               )}
             </Box>
           )}
@@ -1037,15 +972,6 @@ const FoodAnalysisResult = React.memo(({
         >
           <Edit fontSize="small" sx={{ mr: 1 }} />
           Cambiar imagen
-        </MenuItem>
-        <MenuItem 
-          onClick={() => {
-            setIsImageDialogOpen(true);
-            handleImageMenuClose();
-          }}
-        >
-          <ZoomIn fontSize="small" sx={{ mr: 1 }} />
-          Ver imagen completa
         </MenuItem>
       </Menu>
 
