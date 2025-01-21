@@ -65,7 +65,19 @@ const FoodAnalysisResult = React.memo(({
   isEditing = false,
   imageUrl = null 
 }) => {
-  const [plateData, setPlateData] = useState(analysisData);
+  const [plateData, setPlateData] = useState(() => {
+    if (!isEditing) {
+      return {
+        ...analysisData,
+        components: analysisData.components.filter(component => 
+          component.name && 
+          component.name.trim() !== '' && 
+          component.weight > 0
+        )
+      };
+    }
+    return analysisData;
+  });
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(imageUrl);
@@ -479,12 +491,11 @@ const FoodAnalysisResult = React.memo(({
   };
 
   const handleDeleteIngredient = (index) => {
-    if (!isEditing) return;
-
     setPlateData(prev => {
       const newData = { ...prev };
       newData.components = newData.components.filter((_, i) => i !== index);
       
+      // Recalcular totales
       newData.total_weight = newData.components.reduce((sum, ing) => sum + (ing.weight || 0), 0);
       newData.total_kcal = newData.components.reduce((sum, ing) => sum + (ing.kcal || 0), 0);
       newData.total_protein_weight = newData.components.reduce((sum, ing) => sum + (ing.protein_weight || 0), 0);
@@ -613,7 +624,8 @@ const FoodAnalysisResult = React.memo(({
                           } : {},
                           display: 'flex',
                           alignItems: 'center',
-                          justifyContent: 'space-between'
+                          justifyContent: 'space-between',
+                          flexGrow: 1
                         }}
                       >
                         {ingredient.name}
@@ -630,18 +642,16 @@ const FoodAnalysisResult = React.memo(({
                       </Typography>
                     )}
                     
-                    {isEditing && (
-                      <IconButton
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteIngredient(index);
-                        }}
-                        sx={{ ml: 1 }}
-                      >
-                        <Delete fontSize="small" />
-                      </IconButton>
-                    )}
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteIngredient(index);
+                      }}
+                      sx={{ ml: 1 }}
+                    >
+                      <Delete fontSize="small" />
+                    </IconButton>
                   </Box>
 
                   <Stack direction="row" spacing={2}>
