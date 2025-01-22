@@ -11,6 +11,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  DialogContentText,
 } from '@mui/material';
 import { Edit, Add, Check, Close, Delete, Star, StarBorder, ChevronLeft } from '@mui/icons-material';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -107,6 +108,21 @@ const FoodAnalysisResult = React.memo(({
   userCreationDate,
   isManualInput = false
 }) => {
+  // Crear una copia profunda de los datos originales para comparar después
+  const originalData = React.useMemo(() => ({
+    description: analysisData.description,
+    components: analysisData.components.map(component => ({
+      name: component.name,
+      weight: Number(component.weight) || 0,
+      kcal: Number(component.kcal) || 0,
+      protein_weight: Number(component.protein_weight) || 0,
+      carbohydrates_weight: Number(component.carbohydrates_weight) || 0,
+      fats_weight: Number(component.fats_weight) || 0
+    })),
+    isFavorite: analysisData.isFavorite || false,
+    date: analysisData.date
+  }), [analysisData]);
+
   const [plateData, setPlateData] = useState(() => {
     if (!isEditing) {
       return {
@@ -115,10 +131,27 @@ const FoodAnalysisResult = React.memo(({
           component.name && 
           component.name.trim() !== '' && 
           component.weight > 0
-        )
+        ).map(component => ({
+          ...component,
+          weight: Number(component.weight) || 0,
+          kcal: Number(component.kcal) || 0,
+          protein_weight: Number(component.protein_weight) || 0,
+          carbohydrates_weight: Number(component.carbohydrates_weight) || 0,
+          fats_weight: Number(component.fats_weight) || 0
+        }))
       };
     }
-    return analysisData;
+    return {
+      ...analysisData,
+      components: analysisData.components.map(component => ({
+        ...component,
+        weight: Number(component.weight) || 0,
+        kcal: Number(component.kcal) || 0,
+        protein_weight: Number(component.protein_weight) || 0,
+        carbohydrates_weight: Number(component.carbohydrates_weight) || 0,
+        fats_weight: Number(component.fats_weight) || 0
+      }))
+    };
   });
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -131,15 +164,6 @@ const FoodAnalysisResult = React.memo(({
   const [dialogMode, setDialogMode] = useState(null);
   const [isEditProcessing, setIsEditProcessing] = useState(false);
   const [isAddProcessing, setIsAddProcessing] = useState(false);
-  const [originalValues] = useState(() => 
-    analysisData.components.map(component => ({
-      weight: component.weight,
-      kcal: component.kcal,
-      protein_weight: component.protein_weight,
-      carbohydrates_weight: component.carbohydrates_weight,
-      fats_weight: component.fats_weight
-    }))
-  );
   const [isImageDialogOpen, setIsImageDialogOpen] = useState(false);
   const dialogTextFieldRef = useRef(null);
   const [isFavorite, setIsFavorite] = useState(analysisData.isFavorite || false);
@@ -160,6 +184,7 @@ const FoodAnalysisResult = React.memo(({
     }
   });
   const [dateError, setDateError] = useState(null);
+  const [isExitDialogOpen, setIsExitDialogOpen] = useState(false);
 
   const handleEditIngredient = useCallback((index) => {
     setDialogMode('edit');
@@ -360,14 +385,14 @@ const FoodAnalysisResult = React.memo(({
   const handleIngredientChange = (index, field, value) => {
     setPlateData(prev => {
       const newData = { ...prev };
-      newData.components[index][field] = value === '' ? '' : Number(value);
+      newData.components[index][field] = value === '' ? 0 : Number(value);
 
       // Recalcular totales después de cada cambio
-      newData.total_weight = newData.components.reduce((sum, ing) => sum + (ing.weight || 0), 0);
-      newData.total_kcal = newData.components.reduce((sum, ing) => sum + (ing.kcal || 0), 0);
-      newData.total_protein_weight = newData.components.reduce((sum, ing) => sum + (ing.protein_weight || 0), 0);
-      newData.total_carbohydrates_weight = newData.components.reduce((sum, ing) => sum + (ing.carbohydrates_weight || 0), 0);
-      newData.total_fats_weight = newData.components.reduce((sum, ing) => sum + (ing.fats_weight || 0), 0);
+      newData.total_weight = newData.components.reduce((sum, ing) => sum + (Number(ing.weight) || 0), 0);
+      newData.total_kcal = newData.components.reduce((sum, ing) => sum + (Number(ing.kcal) || 0), 0);
+      newData.total_protein_weight = newData.components.reduce((sum, ing) => sum + (Number(ing.protein_weight) || 0), 0);
+      newData.total_carbohydrates_weight = newData.components.reduce((sum, ing) => sum + (Number(ing.carbohydrates_weight) || 0), 0);
+      newData.total_fats_weight = newData.components.reduce((sum, ing) => sum + (Number(ing.fats_weight) || 0), 0);
 
       return newData;
     });
@@ -377,19 +402,22 @@ const FoodAnalysisResult = React.memo(({
     setPlateData(prev => {
       const newData = { ...prev };
       const ingredient = newData.components[index];
-      const originalIngredient = originalValues[index];
+      const originalIngredient = analysisData.components[index];
       
-      const ratio = ingredient.weight / originalIngredient.weight;
-      ingredient.kcal = Math.round(originalIngredient.kcal * ratio);
-      ingredient.protein_weight = Math.round(originalIngredient.protein_weight * ratio);
-      ingredient.carbohydrates_weight = Math.round(originalIngredient.carbohydrates_weight * ratio);
-      ingredient.fats_weight = Math.round(originalIngredient.fats_weight * ratio);
+      if (ingredient.weight && originalIngredient.weight) {
+        const ratio = Number(ingredient.weight) / Number(originalIngredient.weight);
+        ingredient.kcal = Math.round(Number(originalIngredient.kcal) * ratio);
+        ingredient.protein_weight = Math.round(Number(originalIngredient.protein_weight) * ratio);
+        ingredient.carbohydrates_weight = Math.round(Number(originalIngredient.carbohydrates_weight) * ratio);
+        ingredient.fats_weight = Math.round(Number(originalIngredient.fats_weight) * ratio);
+      }
       
-      newData.total_weight = newData.components.reduce((sum, ing) => sum + (ing.weight || 0), 0);
-      newData.total_kcal = newData.components.reduce((sum, ing) => sum + (ing.kcal || 0), 0);
-      newData.total_protein_weight = newData.components.reduce((sum, ing) => sum + (ing.protein_weight || 0), 0);
-      newData.total_carbohydrates_weight = newData.components.reduce((sum, ing) => sum + (ing.carbohydrates_weight || 0), 0);
-      newData.total_fats_weight = newData.components.reduce((sum, ing) => sum + (ing.fats_weight || 0), 0);
+      // Recalcular totales
+      newData.total_weight = newData.components.reduce((sum, ing) => sum + (Number(ing.weight) || 0), 0);
+      newData.total_kcal = newData.components.reduce((sum, ing) => sum + (Number(ing.kcal) || 0), 0);
+      newData.total_protein_weight = newData.components.reduce((sum, ing) => sum + (Number(ing.protein_weight) || 0), 0);
+      newData.total_carbohydrates_weight = newData.components.reduce((sum, ing) => sum + (Number(ing.carbohydrates_weight) || 0), 0);
+      newData.total_fats_weight = newData.components.reduce((sum, ing) => sum + (Number(ing.fats_weight) || 0), 0);
       
       return newData;
     });
@@ -609,6 +637,65 @@ const FoodAnalysisResult = React.memo(({
     }, 100);
   };
 
+  // Función para verificar si hay cambios
+  const hasChanges = () => {
+    // Verificar cambios en la descripción
+    if (plateData.description !== originalData.description) {
+      return true;
+    }
+    
+    // Verificar cambios en favorito
+    if (isFavorite !== originalData.isFavorite) {
+      return true;
+    }
+
+    // Verificar cambios en la fecha
+    const formattedOriginalDate = formatDateToISO(new Date(originalData.date));
+    if (selectedDate !== formattedOriginalDate) {
+      return true;
+    }
+
+    // Verificar cambios en los ingredientes
+    if (plateData.components.length !== originalData.components.length) {
+      return true;
+    }
+
+    // Verificar cambios en cada ingrediente
+    const hasComponentChanges = plateData.components.some((component, index) => {
+      const original = originalData.components[index];
+      
+      // Convertir todos los valores a números para la comparación
+      const currentWeight = Number(component.weight) || 0;
+      const originalWeight = Number(original.weight) || 0;
+      const currentKcal = Number(component.kcal) || 0;
+      const originalKcal = Number(original.kcal) || 0;
+      const currentProtein = Number(component.protein_weight) || 0;
+      const originalProtein = Number(original.protein_weight) || 0;
+      const currentCarbs = Number(component.carbohydrates_weight) || 0;
+      const originalCarbs = Number(original.carbohydrates_weight) || 0;
+      const currentFats = Number(component.fats_weight) || 0;
+      const originalFats = Number(original.fats_weight) || 0;
+
+      return component.name !== original.name ||
+             currentWeight !== originalWeight ||
+             currentKcal !== originalKcal ||
+             currentProtein !== originalProtein ||
+             currentCarbs !== originalCarbs ||
+             currentFats !== originalFats;
+    });
+
+    return hasComponentChanges;
+  };
+
+  // Modificar el handler del botón de retroceso
+  const handleBackClick = () => {
+    if (hasChanges()) {
+      setIsExitDialogOpen(true);
+    } else {
+      onCancel();
+    }
+  };
+
   return (
     <>
       <Box sx={{ 
@@ -632,8 +719,8 @@ const FoodAnalysisResult = React.memo(({
             spacing={1}
           >
             <IconButton
-              onClick={onCancel}
-              sx={{ ml: -1 }}  // Alinear visualmente con el contenido
+              onClick={handleBackClick}
+              sx={{ ml: -1 }}
             >
               <ChevronLeft />
             </IconButton>
@@ -970,6 +1057,47 @@ const FoodAnalysisResult = React.memo(({
         <DialogActions>
           <Button onClick={() => setIsImageDialogOpen(false)}>
             Cerrar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Diálogo de confirmación al salir */}
+      <Dialog
+        open={isExitDialogOpen}
+        onClose={() => setIsExitDialogOpen(false)}
+      >
+        <DialogTitle>
+          Hay cambios sin guardar
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            ¿Qué deseas hacer con los cambios realizados?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setIsExitDialogOpen(false)}
+            color="inherit"
+          >
+            Seguir editando
+          </Button>
+          <Button 
+            onClick={() => {
+              setIsExitDialogOpen(false);
+              onCancel();
+            }}
+            color="error"
+          >
+            Descartar cambios
+          </Button>
+          <Button 
+            onClick={() => {
+              setIsExitDialogOpen(false);
+              handleSave();
+            }}
+            variant="contained"
+          >
+            Guardar cambios
           </Button>
         </DialogActions>
       </Dialog>
