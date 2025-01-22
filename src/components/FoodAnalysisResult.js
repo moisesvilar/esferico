@@ -11,10 +11,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Menu,
-  MenuItem
 } from '@mui/material';
-import { Edit, Add, Check, Close, Delete, Star, StarBorder } from '@mui/icons-material';
+import { Edit, Add, Check, Close, Delete, Star, StarBorder, ChevronLeft } from '@mui/icons-material';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp, setDoc, doc } from 'firebase/firestore';
 import { auth, storage, db } from '../config/firebase';
@@ -162,9 +160,6 @@ const FoodAnalysisResult = React.memo(({
     }
   });
   const [dateError, setDateError] = useState(null);
-  const [imageMenuAnchorEl, setImageMenuAnchorEl] = useState(null);
-  const [selectedImagePreview, setSelectedImagePreview] = useState(null);  // Para mostrar la imagen seleccionada
-  const [pendingImage, setPendingImage] = useState(null);  // Para guardar el archivo seleccionado
 
   const handleEditIngredient = useCallback((index) => {
     setDialogMode('edit');
@@ -472,14 +467,14 @@ const FoodAnalysisResult = React.memo(({
       let hasImage = false;
 
       // Si hay una imagen pendiente de subir
-      if (pendingImage) {
+      if (selectedImage) {
         hasImage = true;
-        imageHash = await calculateImageHash(pendingImage);
+        imageHash = await calculateImageHash(selectedImage);
         
         // Subir versión grande y pequeña por separado
         const [largeImage, thumbImage] = await Promise.all([
-          resizeImage(pendingImage, 1024),
-          resizeImage(pendingImage, 100)
+          resizeImage(selectedImage, 1024),
+          resizeImage(selectedImage, 100)
         ]);
 
         // Crear referencias únicas para cada versión
@@ -589,26 +584,6 @@ const FoodAnalysisResult = React.memo(({
     }
   };
 
-  const handleChangeImage = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    
-    input.onchange = async (e) => {
-      if (e.target.files && e.target.files[0]) {
-        const file = e.target.files[0];
-        setPendingImage(file);  // Guardar el archivo para subirlo después
-        
-        // Crear preview
-        const reader = new FileReader();
-        reader.onload = (e) => setSelectedImagePreview(e.target.result);
-        reader.readAsDataURL(file);
-      }
-    };
-    
-    input.click();
-  };
-
   const handleDeleteIngredient = (index) => {
     setPlateData(prev => {
       const newData = { ...prev };
@@ -634,15 +609,6 @@ const FoodAnalysisResult = React.memo(({
     }, 100);
   };
 
-  const handleImageClick = (event) => {
-    event.preventDefault();
-    setImageMenuAnchorEl(event.currentTarget);
-  };
-
-  const handleImageMenuClose = () => {
-    setImageMenuAnchorEl(null);
-  };
-
   return (
     <>
       <Box sx={{ 
@@ -660,79 +626,53 @@ const FoodAnalysisResult = React.memo(({
           width: '100%',
           maxWidth: '100%'  // Asegurar que el Stack no se desborde
         }}>
-          {!isManualInput && (  // Solo mostrar la imagen si no es entrada manual
-            <Box
-              sx={{
-                width: '100%',
-                height: imageUrl ? '100px' : 'auto',
-                overflow: 'hidden',
-                borderRadius: 1,
-                backgroundColor: 'background.paper',
-              }}
-            >
-              {selectedImagePreview || imageUrl ? (
-                // Mostrar la imagen seleccionada o la existente
-                <Box
-                  component="img"
-                  src={selectedImagePreview || imageUrl}
-                  alt="Imagen del plato"
-                  onClick={handleImageClick}
-                  sx={{
-                    width: '100%',
-                    height: '100px',
-                    objectFit: 'cover',
-                    cursor: 'pointer'
-                  }}
-                />
-              ) : (
-                // Botón para añadir imagen
-                <Button
-                  fullWidth
-                  variant="outlined"
-                  startIcon={<Add />}
-                  onClick={handleChangeImage}
-                  sx={{ height: '48px' }}
-                >
-                  Añadir imagen
-                </Button>
-              )}
-            </Box>
-          )}
-
           <Stack 
             direction="row" 
             alignItems="center" 
-            justifyContent="space-between"
-            sx={{ mb: 2 }}
+            spacing={1}
           >
-            {isEditingDescription ? (
-              <TextField
-                value={plateData.description}
-                onChange={(e) => setPlateData(prev => ({ ...prev, description: e.target.value }))}
-                fullWidth
-                size="small"
-                sx={{ mr: 1 }}
-                placeholder="Nombre del plato"
-                autoFocus
-              />
-            ) : (
-              <Typography variant="h6">
-                {plateData.description}
-              </Typography>
-            )}
-            
-            <Stack direction="row" spacing={1} alignItems="center">
-              <IconButton 
-                onClick={handleFavoriteToggle}
-                color={isFavorite ? "warning" : "default"}
-              >
-                {isFavorite ? <Star /> : <StarBorder />}
-              </IconButton>
-              <IconButton 
-                onClick={() => setIsEditingDescription(!isEditingDescription)}
-              >
-                {isEditingDescription ? <Check /> : <Edit />}
-              </IconButton>
+            <IconButton
+              onClick={onCancel}
+              sx={{ ml: -1 }}  // Alinear visualmente con el contenido
+            >
+              <ChevronLeft />
+            </IconButton>
+
+            <Stack 
+              direction="row" 
+              alignItems="center" 
+              justifyContent="space-between"
+              sx={{ width: '100%' }}
+            >
+              {isEditingDescription ? (
+                <TextField
+                  value={plateData.description}
+                  onChange={(e) => setPlateData(prev => ({ ...prev, description: e.target.value }))}
+                  fullWidth
+                  size="small"
+                  sx={{ mr: 1 }}
+                  placeholder="Nombre del plato"
+                  autoFocus
+                />
+              ) : (
+                <Typography variant="h6">
+                  {plateData.description}
+                </Typography>
+              )}
+              
+              <Stack direction="row" spacing={1} alignItems="center">
+                <IconButton 
+                  onClick={handleFavoriteToggle}
+                  color={isFavorite ? "warning" : "default"}
+                >
+                  {isFavorite ? <Star /> : <StarBorder />}
+                </IconButton>
+                <IconButton 
+                  onClick={() => setIsEditingDescription(!isEditingDescription)}
+                >
+                  {isEditingDescription ? <Check /> : <Edit />}
+                </IconButton>
+              </Stack>
             </Stack>
           </Stack>
 
@@ -921,22 +861,6 @@ const FoodAnalysisResult = React.memo(({
           </Stack>
         </Stack>
       </Box>
-
-      <Menu
-        anchorEl={imageMenuAnchorEl}
-        open={Boolean(imageMenuAnchorEl)}
-        onClose={handleImageMenuClose}
-      >
-        <MenuItem 
-          onClick={() => {
-            handleChangeImage();
-            handleImageMenuClose();
-          }}
-        >
-          <Edit fontSize="small" sx={{ mr: 1 }} />
-          Cambiar imagen
-        </MenuItem>
-      </Menu>
 
       <Dialog
         open={isAddDialogOpen}

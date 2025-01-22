@@ -48,6 +48,7 @@ function AddActivityScreen({ open, onClose, currentDate, onActivityAdded }) {
   const [manualText, setManualText] = useState('');
   const [shouldCloseMain, setShouldCloseMain] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isNameCaloriesProcessing, setIsNameCaloriesProcessing] = useState(false);
 
   // Efecto para manejar el cierre del diálogo principal
   useEffect(() => {
@@ -132,6 +133,8 @@ function AddActivityScreen({ open, onClose, currentDate, onActivityAdded }) {
 
   const handleNameCaloriesSave = async () => {
     try {
+      setIsNameCaloriesProcessing(true);
+      
       const activityDoc = {
         name: activityName.trim(),
         kcal: Number(activityCalories),
@@ -149,6 +152,8 @@ function AddActivityScreen({ open, onClose, currentDate, onActivityAdded }) {
       setShouldCloseMain(true);
     } catch (error) {
       console.error('Error saving activity:', error);
+    } finally {
+      setIsNameCaloriesProcessing(false);
     }
   };
 
@@ -239,9 +244,9 @@ function AddActivityScreen({ open, onClose, currentDate, onActivityAdded }) {
           <Button 
             onClick={handleNameCaloriesSave}
             variant="contained"
-            disabled={!activityName.trim() || !activityCalories}
+            disabled={!activityName.trim() || !activityCalories || isNameCaloriesProcessing}
           >
-            Aceptar
+            {isNameCaloriesProcessing ? 'Procesando...' : 'Aceptar'}
           </Button>
         </DialogActions>
       </Dialog>
