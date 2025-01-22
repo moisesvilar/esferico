@@ -50,12 +50,25 @@ function App() {
   const handleLogin = async () => {
     try {
       setError(null);
+      // Forzar la selección de cuenta cada vez
+      googleProvider.setCustomParameters({
+        prompt: 'select_account'
+      });
       const result = await signInWithPopup(auth, googleProvider);
       setUser(result.user);
       await fetchUserData(result.user.uid);
     } catch (error) {
-      console.error('Error de autenticación:', error);
-      setError('Error al intentar iniciar sesión. Por favor, inténtalo de nuevo.');
+      console.error('Error de autenticación:', error.code, error.message);
+      let errorMessage = 'Error al intentar iniciar sesión. Por favor, inténtalo de nuevo.';
+      
+      // Mensajes de error más específicos
+      if (error.code === 'auth/popup-blocked') {
+        errorMessage = 'El navegador bloqueó la ventana emergente. Por favor, permite las ventanas emergentes e inténtalo de nuevo.';
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        errorMessage = 'Se cerró la ventana de inicio de sesión. Por favor, inténtalo de nuevo.';
+      }
+      
+      setError(errorMessage);
     }
   };
 

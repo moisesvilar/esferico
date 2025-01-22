@@ -1,5 +1,10 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { 
+  GoogleAuthProvider, 
+  getAuth,
+  browserLocalPersistence,
+  setPersistence 
+} from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
@@ -13,7 +18,21 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+
+// Volver a usar getAuth en lugar de initializeAuth
 export const auth = getAuth(app);
+
+// Configurar la persistencia
+setPersistence(auth, browserLocalPersistence)
+  .catch((error) => {
+    console.error("Error setting persistence:", error);
+  });
+
 export const db = getFirestore(app);
 export const storage = getStorage(app);
-export const googleProvider = new GoogleAuthProvider(); 
+
+// Configurar el proveedor de Google
+export const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({
+  prompt: 'select_account'
+}); 
