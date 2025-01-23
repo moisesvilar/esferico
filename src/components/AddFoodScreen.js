@@ -302,7 +302,7 @@ function AddFoodScreen({ open, onClose, onImageAnalyzed, currentDate }) {
         total_fats_weight: selectedFavorite.total_fats_weight,
         components: selectedFavorite.components,
         imageUrl: selectedFavorite.imageUrl,
-        isFavorite: selectedFavorite.isFavorite,
+        isFavorite: false,  // Cambiado: la nueva copia no será favorita
         date: currentDate.toISOString(),
         userId: auth.currentUser.uid,
         createdAt: serverTimestamp()
@@ -314,10 +314,9 @@ function AddFoodScreen({ open, onClose, onImageAnalyzed, currentDate }) {
       // Cerrar diálogos y notificar
       handleFavoriteClose();
       onClose();
-      onImageAnalyzed(null, null); // Esto disparará el refresco del listado
+      onImageAnalyzed(null, null);
     } catch (error) {
       console.error('Error saving favorite meal:', error);
-      // Aquí podrías mostrar un mensaje de error al usuario
     }
   };
 

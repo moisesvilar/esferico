@@ -106,7 +106,8 @@ const FoodAnalysisResult = React.memo(({
   isEditing = false,
   imageUrl = null,
   userCreationDate,
-  isManualInput = false
+  isManualInput = false,
+  readOnly = false
 }) => {
   // Crear una copia profunda de los datos originales para comparar después
   const originalData = React.useMemo(() => ({
@@ -170,16 +171,19 @@ const FoodAnalysisResult = React.memo(({
   const [selectedDate, setSelectedDate] = useState(() => {
     try {
       if (isEditing && analysisData.date) {
-        const editDate = new Date(analysisData.date);
-        return formatDateToISO(editDate);
-      } else {
-        const date = new Date();
-        if (currentDate instanceof Date && !isNaN(currentDate)) {
-          date.setTime(currentDate.getTime());
+        // Asegurarnos de que la fecha es válida
+        const date = new Date(analysisData.date);
+        if (isNaN(date.getTime())) {
+          // Si la fecha no es válida, usar la fecha actual
+          return formatDateToISO(new Date());
         }
+        return formatDateToISO(date);
+      } else {
+        const date = currentDate instanceof Date ? currentDate : new Date();
         return formatDateToISO(date);
       }
     } catch (error) {
+      console.error('Error parsing date:', error);
       return formatDateToISO(new Date());
     }
   });
@@ -740,6 +744,7 @@ const FoodAnalysisResult = React.memo(({
                   sx={{ mr: 1 }}
                   placeholder="Nombre del plato"
                   autoFocus
+                  disabled={readOnly}
                 />
               ) : (
                 <Typography variant="h6">
@@ -751,11 +756,13 @@ const FoodAnalysisResult = React.memo(({
                 <IconButton 
                   onClick={handleFavoriteToggle}
                   color={isFavorite ? "warning" : "default"}
+                  disabled={readOnly}
                 >
                   {isFavorite ? <Star /> : <StarBorder />}
                 </IconButton>
                 <IconButton 
                   onClick={() => setIsEditingDescription(!isEditingDescription)}
+                  disabled={readOnly}
                 >
                   {isEditingDescription ? <Check /> : <Edit />}
                 </IconButton>
@@ -783,7 +790,7 @@ const FoodAnalysisResult = React.memo(({
             }}
             fullWidth
             size="small"
-            disabled={!isEditing}
+            disabled={!isEditing || readOnly}
           />
 
           <Stack spacing={2}>
@@ -811,6 +818,7 @@ const FoodAnalysisResult = React.memo(({
                             fontWeight: 'normal'
                           }
                         }}
+                        disabled={readOnly}
                       />
                     ) : (
                       <Typography 
@@ -819,6 +827,7 @@ const FoodAnalysisResult = React.memo(({
                           cursor: isEditing ? 'pointer' : 'default',
                           flexGrow: 1
                         }}
+                        disabled={readOnly}
                       >
                         {ingredient.name}
                       </Typography>
@@ -829,6 +838,7 @@ const FoodAnalysisResult = React.memo(({
                         e.stopPropagation();
                         handleDeleteIngredient(index);
                       }}
+                      disabled={readOnly}
                     >
                       <Delete fontSize="small" />
                     </IconButton>
@@ -857,6 +867,7 @@ const FoodAnalysisResult = React.memo(({
                         min: 0,
                         step: "1"
                       }}
+                      disabled={readOnly}
                     />
                     <TextField
                       label="Kcal"
@@ -868,11 +879,13 @@ const FoodAnalysisResult = React.memo(({
                         min: 0,
                         step: "1"
                       }}
+                      disabled={readOnly}
                     />
                     <IconButton
                       onClick={() => handleEditIngredient(index)}
                       color="primary"
                       size="small"
+                      disabled={readOnly}
                     >
                       <Edit fontSize="small" />
                     </IconButton>
@@ -887,6 +900,7 @@ const FoodAnalysisResult = React.memo(({
             startIcon={<Add />}
             onClick={handleAddIngredient}
             fullWidth
+            disabled={readOnly}
           >
             Añadir ingrediente
           </Button>
@@ -926,26 +940,28 @@ const FoodAnalysisResult = React.memo(({
             </Typography>
           )}
 
-          <Stack direction="row" spacing={2}>
-            <Button
-              variant="contained"
-              startIcon={<Check />}
-              onClick={handleSave}
-              disabled={isSaving}
-              fullWidth
-            >
-              {isSaving ? 'Guardando...' : 'Confirmar'}
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<Close />}
-              onClick={onCancel}
-              disabled={isSaving}
-              fullWidth
-            >
-              Cancelar
-            </Button>
-          </Stack>
+          {!readOnly && (
+            <Stack direction="row" spacing={2}>
+              <Button
+                variant="contained"
+                startIcon={<Check />}
+                onClick={handleSave}
+                disabled={isSaving}
+                fullWidth
+              >
+                {isSaving ? 'Guardando...' : 'Confirmar'}
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<Close />}
+                onClick={onCancel}
+                disabled={isSaving}
+                fullWidth
+              >
+                Cancelar
+              </Button>
+            </Stack>
+          )}
         </Stack>
       </Box>
 
@@ -1010,21 +1026,26 @@ const FoodAnalysisResult = React.memo(({
               ref={dialogTextFieldRef}
               onFocus={handleDialogTextFieldFocus}
               sx={{ mb: 2 }}
+              disabled={readOnly}
             />
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button 
             onClick={dialogMode === 'edit' ? handleManualEditClose : handleAddDialogClose}
+            disabled={readOnly}
           >
             Cancelar
           </Button>
           <Button 
             onClick={dialogMode === 'edit' ? handleManualEditSave : handleAddDialogSave}
             variant="contained"
-            disabled={dialogMode === 'edit' 
-              ? (!manualEditText.trim() || isEditProcessing)
-              : (!newIngredientText.trim() || isAddProcessing)
+            disabled={
+              readOnly || 
+              (dialogMode === 'edit' 
+                ? (!manualEditText.trim() || isEditProcessing)
+                : (!newIngredientText.trim() || isAddProcessing)
+              )
             }
           >
             {dialogMode === 'edit'

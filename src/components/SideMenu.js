@@ -12,16 +12,19 @@ import {
   Home,
   Person,
   Logout,
-  CalendarMonth 
+  CalendarMonth,
+  Star
 } from '@mui/icons-material';
 import { auth, db } from '../config/firebase';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import UpdateUserDataDialog from './UpdateUserDataDialog';
+import FavoriteFoodsScreen from './FavoriteFoodsScreen';
 
 function SideMenu({ isOpen, onClose, onMenuItemClick }) {
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
   const [userData, setUserData] = useState(null);
+  const [showFavorites, setShowFavorites] = useState(false);
 
   const menuItems = [
     { id: 'home', text: 'Inicio', icon: <Home /> },
@@ -88,6 +91,19 @@ function SideMenu({ isOpen, onClose, onMenuItemClick }) {
               </ListItemButton>
             </ListItem>
           ))}
+
+<ListItem 
+            button
+            onClick={() => {
+              setShowFavorites(true);
+              onClose();
+            }}
+          >
+            <ListItemIcon>
+              <Star />
+            </ListItemIcon>
+            <ListItemText primary="Comidas favoritas" />
+          </ListItem>
           
           <Divider sx={{ my: 1 }} />
           
@@ -99,6 +115,7 @@ function SideMenu({ isOpen, onClose, onMenuItemClick }) {
               <ListItemText primary="Cerrar sesión" />
             </ListItemButton>
           </ListItem>
+
         </List>
       </Drawer>
 
@@ -107,6 +124,12 @@ function SideMenu({ isOpen, onClose, onMenuItemClick }) {
         onClose={handleUpdateDialogClose}
         currentData={userData}
       />
+
+      {showFavorites && (
+        <FavoriteFoodsScreen 
+          onClose={() => setShowFavorites(false)} 
+        />
+      )}
     </>
   );
 }
