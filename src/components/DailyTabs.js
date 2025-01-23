@@ -23,6 +23,8 @@ import { Add, Delete, Star, RestaurantMenu } from '@mui/icons-material';
 import { collection, query, where, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 import { startOfDay, endOfDay } from 'date-fns';
+import { ref, getDownloadURL } from 'firebase/storage';
+import { storage } from '../config/firebase';
 
 function TabPanel({ children, value, index }) {
   return (
@@ -152,6 +154,17 @@ function DailyTabs({
     setActivityToDelete(null);
   };
 
+  const regenerateImageUrl = async (plate, isThumb = false) => {
+    try {
+      const imagePath = `plates/${plate.userId}/${plate.imageId}${isThumb ? '_thumb' : '_large'}.jpg`;
+      const imageRef = ref(storage, imagePath);
+      return await getDownloadURL(imageRef);
+    } catch (error) {
+      console.error('Error regenerating URL:', error);
+      return null;
+    }
+  };
+
   const renderPlateImage = (plate) => {
     // 1. Si tiene thumbnailUrl, usar thumbnail
     if (plate.thumbnailUrl) {
@@ -166,14 +179,44 @@ function DailyTabs({
             borderRadius: 1,
             objectFit: 'cover'
           }}
-          onError={(e) => {
-            // Si falla el thumbnail, intentar con imageUrl
-            if (plate.imageUrl) {
-              e.target.src = plate.imageUrl;
-            } else {
-              // Si no hay imageUrl o también falla, ocultar la imagen
-              e.target.style.display = 'none';
+          onError={async (e) => {
+            try {
+              // Intentar regenerar la URL del thumbnail
+              const newThumbUrl = await regenerateImageUrl(plate, true);
+              if (newThumbUrl) {
+                e.target.src = newThumbUrl;
+                return;
+              }
+
+              // Si falla, intentar con la imagen grande
+              if (plate.imageUrl) {
+                const newImageUrl = await regenerateImageUrl(plate, false);
+                if (newImageUrl) {
+                  e.target.src = newImageUrl;
+                  return;
+                }
+              }
+            } catch (error) {
+              console.error('Error regenerating URLs:', error);
             }
+
+            // Si todo falla, mostrar el icono por defecto
+            e.target.style.display = 'none';
+            e.target.parentElement.innerHTML = `
+              <div style="
+                width: 48px;
+                height: 48px;
+                border-radius: 4px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background-color: rgba(0, 0, 0, 0.04);
+              ">
+                <svg viewBox="0 0 24 24" style="width: 24px; height: 24px; color: rgba(0, 0, 0, 0.6);">
+                  <path fill="currentColor" d="M11 9H9V2H7v7H5V2H3v7c0 2.12 1.66 3.84 3.75 3.97V22h2.5v-9.03C11.34 12.84 13 11.12 13 9V2h-2v7zm5-3v8h2.5v8H21V2c-2.76 0-5 2.24-5 4z"/>
+                </svg>
+              </div>
+            `;
           }}
         />
       );

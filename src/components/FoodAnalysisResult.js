@@ -133,26 +133,13 @@ const FoodAnalysisResult = React.memo(({
   }), [analysisData]);
 
   const [plateData, setPlateData] = useState(() => {
-    if (!isEditing) {
-      return {
-        ...analysisData,
-        components: analysisData.components.filter(component => 
-          component.name && 
-          component.name.trim() !== '' && 
-          component.weight > 0
-        ).map(component => ({
-          ...component,
-          weight: Number(component.weight) || 0,
-          kcal: Number(component.kcal) || 0,
-          protein_weight: Number(component.protein_weight) || 0,
-          carbohydrates_weight: Number(component.carbohydrates_weight) || 0,
-          fats_weight: Number(component.fats_weight) || 0
-        }))
-      };
-    }
-    return {
+    const baseData = {
       ...analysisData,
-      components: analysisData.components.map(component => ({
+      components: (isEditing ? analysisData.components : analysisData.components.filter(component => 
+        component.name && 
+        component.name.trim() !== '' && 
+        component.weight > 0
+      )).map(component => ({
         ...component,
         weight: Number(component.weight) || 0,
         kcal: Number(component.kcal) || 0,
@@ -161,6 +148,11 @@ const FoodAnalysisResult = React.memo(({
         fats_weight: Number(component.fats_weight) || 0
       }))
     };
+
+    // Asegurarnos de que hasImage está correctamente inicializado
+    baseData.hasImage = Boolean(baseData.imageUrl || imageUrl);
+    
+    return baseData;
   });
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -742,25 +734,30 @@ const FoodAnalysisResult = React.memo(({
       ]);
 
       const timestamp = Date.now();
-      const largeStorageRef = ref(storage, `plates/${auth.currentUser.uid}/${timestamp}_large.jpg`);
-      const thumbStorageRef = ref(storage, `plates/${auth.currentUser.uid}/${timestamp}_thumb.jpg`);
+      const imageId = timestamp.toString();  // Guardar el ID de la imagen
+      const largeStorageRef = ref(storage, `plates/${auth.currentUser.uid}/${imageId}_large.jpg`);
+      const thumbStorageRef = ref(storage, `plates/${auth.currentUser.uid}/${imageId}_thumb.jpg`);
 
+      // Subir las imágenes
       const [largeSnapshot, thumbSnapshot] = await Promise.all([
         uploadBytes(largeStorageRef, largeImage),
         uploadBytes(thumbStorageRef, thumbImage)
       ]);
 
+      // Obtener URLs con token de acceso
       const [newImageUrl, newThumbnailUrl] = await Promise.all([
         getDownloadURL(largeSnapshot.ref),
         getDownloadURL(thumbSnapshot.ref)
       ]);
 
+      // Actualizar el estado con las nuevas URLs
       setPlateData(prev => ({
         ...prev,
         hasImage: true,
         imageUrl: newImageUrl,
         thumbnailUrl: newThumbnailUrl,
-        imageHash
+        imageHash,
+        imageId  // Guardar el ID de la imagen
       }));
 
       if (isEditing && analysisData.id) {
@@ -769,6 +766,7 @@ const FoodAnalysisResult = React.memo(({
           imageUrl: newImageUrl,
           thumbnailUrl: newThumbnailUrl,
           imageHash,
+          imageId,  // Guardar el ID de la imagen
           updatedAt: serverTimestamp()
         };
 
@@ -857,7 +855,7 @@ const FoodAnalysisResult = React.memo(({
             </Stack>
           </Stack>
 
-          {plateData.hasImage && (plateData.imageUrl || imageUrl) && (
+          {plateData.hasImage && (plateData.imageUrl || imageUrl) ? (
             <Box
               component="img" 
               src={plateData.imageUrl || imageUrl}
@@ -871,6 +869,29 @@ const FoodAnalysisResult = React.memo(({
                 cursor: 'pointer'
               }}
             />
+          ) : !readOnly && (
+            <Button
+              variant="outlined"
+              startIcon={<PhotoCamera />}
+              onClick={handleChangeImage}
+              sx={{
+                width: '100%',
+                height: 200,
+                borderStyle: 'dashed',
+                borderWidth: 2,
+                borderRadius: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1
+              }}
+            >
+              <Typography variant="body1">
+                Añadir imagen
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Haz clic para seleccionar una imagen
+              </Typography>
+            </Button>
           )}
 
           <TextField

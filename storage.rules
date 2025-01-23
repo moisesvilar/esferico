@@ -2,12 +2,12 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    match /plates/{userId}/{fileName} {
+    match /plates/{userId}/{imageId} {
       // Permitir lectura a cualquier usuario autenticado
       allow read: if request.auth != null;
       
-      // Permitir escritura si el usuario está autenticado
-      allow write: if request.auth != null;
+      // Permitir escritura si el usuario está autenticado y es el propietario
+      allow write: if request.auth != null && request.auth.uid == userId;
     }
   }
 } 
