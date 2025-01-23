@@ -12,8 +12,14 @@ import {
   DialogContent,
   DialogActions,
   DialogContentText,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
+  CircularProgress,
+  Backdrop,
 } from '@mui/material';
-import { Edit, Add, Check, Close, Delete, Star, StarBorder, ChevronLeft } from '@mui/icons-material';
+import { Edit, Add, Check, Close, Delete, Star, StarBorder, ChevronLeft, PhotoCamera, ZoomIn } from '@mui/icons-material';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp, setDoc, doc } from 'firebase/firestore';
 import { auth, storage, db } from '../config/firebase';
@@ -32,15 +38,12 @@ const fetchWithRetry = async (url, options, maxRetries = 5, delay = 1000) => {
         throw new Error(`Error en la llamada al servidor después de ${maxRetries} intentos: ${response.status} ${response.statusText}`);
       }
       
-      // Esperar antes del siguiente intento (delay exponencial)
       await new Promise(resolve => setTimeout(resolve, delay * attempt));
       
     } catch (error) {
       if (attempt === maxRetries) {
         throw error;
       }
-      console.log(`Error en el intento ${attempt}:`, error);
-      // Esperar antes del siguiente intento
       await new Promise(resolve => setTimeout(resolve, delay * attempt));
     }
   }
@@ -48,32 +51,37 @@ const fetchWithRetry = async (url, options, maxRetries = 5, delay = 1000) => {
 
 // Modificar la función resizeImage para generar dos versiones
 const resizeImage = (file, maxWidth = 1024) => {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const img = new Image();
-    img.src = URL.createObjectURL(file);
     
+    img.onerror = (error) => {
+      reject(error);
+    };
+
     img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        const scaleFactor = maxWidth / img.width;
+        const newHeight = img.height * scaleFactor;
+        
+        canvas.width = maxWidth;
+        canvas.height = newHeight;
+        
+        ctx.drawImage(img, 0, 0, maxWidth, newHeight);
+        
+        canvas.toBlob((blob) => {
+          resolve(blob);
+        }, 'image/jpeg', 0.9);
+      } catch (error) {
+        reject(error);
+      }
       
-      // Calcular nueva altura manteniendo proporción
-      const scaleFactor = maxWidth / img.width;
-      const newHeight = img.height * scaleFactor;
-      
-      canvas.width = maxWidth;
-      canvas.height = newHeight;
-      
-      // Dibujar imagen redimensionada
-      ctx.drawImage(img, 0, 0, maxWidth, newHeight);
-      
-      // Convertir a Blob
-      canvas.toBlob((blob) => {
-        resolve(blob);
-      }, 'image/jpeg', 0.9);  // Usar JPEG con 90% de calidad
-      
-      // Liberar memoria
       URL.revokeObjectURL(img.src);
     };
+    
+    img.src = URL.createObjectURL(file);
   });
 };
 
@@ -189,6 +197,8 @@ const FoodAnalysisResult = React.memo(({
   });
   const [dateError, setDateError] = useState(null);
   const [isExitDialogOpen, setIsExitDialogOpen] = useState(false);
+  const [imageMenuAnchor, setImageMenuAnchor] = useState(null);
+  const [isLoadingImage, setIsLoadingImage] = useState(false);
 
   const handleEditIngredient = useCallback((index) => {
     setDialogMode('edit');
@@ -700,6 +710,82 @@ const FoodAnalysisResult = React.memo(({
     }
   };
 
+  const handleImageClick = (event) => {
+    event.preventDefault();
+    setImageMenuAnchor(event.currentTarget);
+  };
+
+  const handleImageMenuClose = () => {
+    setImageMenuAnchor(null);
+  };
+
+  const handleViewImage = () => {
+    setIsImageDialogOpen(true);
+    handleImageMenuClose();
+  };
+
+  const handleChangeImage = () => {
+    document.getElementById('image-input').click();
+    handleImageMenuClose();
+  };
+
+  const handleImageChange = async (file) => {
+    if (!file) return;
+    
+    try {
+      setIsLoadingImage(true);
+      
+      const imageHash = await calculateImageHash(file);
+      const [largeImage, thumbImage] = await Promise.all([
+        resizeImage(file, 1024),
+        resizeImage(file, 100)
+      ]);
+
+      const timestamp = Date.now();
+      const largeStorageRef = ref(storage, `plates/${auth.currentUser.uid}/${timestamp}_large.jpg`);
+      const thumbStorageRef = ref(storage, `plates/${auth.currentUser.uid}/${timestamp}_thumb.jpg`);
+
+      const [largeSnapshot, thumbSnapshot] = await Promise.all([
+        uploadBytes(largeStorageRef, largeImage),
+        uploadBytes(thumbStorageRef, thumbImage)
+      ]);
+
+      const [newImageUrl, newThumbnailUrl] = await Promise.all([
+        getDownloadURL(largeSnapshot.ref),
+        getDownloadURL(thumbSnapshot.ref)
+      ]);
+
+      setPlateData(prev => ({
+        ...prev,
+        hasImage: true,
+        imageUrl: newImageUrl,
+        thumbnailUrl: newThumbnailUrl,
+        imageHash
+      }));
+
+      if (isEditing && analysisData.id) {
+        const updates = {
+          hasImage: true,
+          imageUrl: newImageUrl,
+          thumbnailUrl: newThumbnailUrl,
+          imageHash,
+          updatedAt: serverTimestamp()
+        };
+
+        await setDoc(doc(db, 'plates', analysisData.id), updates, { merge: true });
+        onSuccess();
+      }
+
+      setImageMenuAnchor(null);
+      setIsImageDialogOpen(false);
+
+    } catch (error) {
+      console.error('Error updating image:', error);
+    } finally {
+      setIsLoadingImage(false);
+    }
+  };
+
   return (
     <>
       <Box sx={{ 
@@ -717,6 +803,7 @@ const FoodAnalysisResult = React.memo(({
           width: '100%',
           maxWidth: '100%'  // Asegurar que el Stack no se desborde
         }}>
+          
           <Stack 
             direction="row" 
             alignItems="center" 
@@ -769,6 +856,22 @@ const FoodAnalysisResult = React.memo(({
               </Stack>
             </Stack>
           </Stack>
+
+          {plateData.hasImage && (plateData.imageUrl || imageUrl) && (
+            <Box
+              component="img" 
+              src={plateData.imageUrl || imageUrl}
+              alt={plateData.description}
+              onClick={handleImageClick}
+              sx={{
+                width: '100%',
+                height: 200,
+                objectFit: 'cover',
+                borderRadius: 1,
+                cursor: 'pointer'
+              }}
+            />
+          )}
 
           <TextField
             type="date"
@@ -1056,21 +1159,65 @@ const FoodAnalysisResult = React.memo(({
         </DialogActions>
       </Dialog>
 
+      <input
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        id="image-input"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) {
+            handleImageChange(file);
+            e.target.value = '';
+          }
+        }}
+      />
+
+      <Menu
+        anchorEl={imageMenuAnchor}
+        open={Boolean(imageMenuAnchor)}
+        onClose={handleImageMenuClose}
+        anchorOrigin={{
+          vertical: 'center',
+          horizontal: 'center',
+        }}
+        transformOrigin={{
+          vertical: 'center',
+          horizontal: 'center',
+        }}
+      >
+        <MenuItem onClick={handleViewImage}>
+          <ListItemIcon>
+            <ZoomIn />
+          </ListItemIcon>
+          <ListItemText>Ver imagen</ListItemText>
+        </MenuItem>
+        {!readOnly && (
+          <MenuItem onClick={handleChangeImage}>
+            <ListItemIcon>
+              <PhotoCamera />
+            </ListItemIcon>
+            <ListItemText>Cambiar imagen</ListItemText>
+          </MenuItem>
+        )}
+      </Menu>
+
+      {/* Diálogo de imagen sin el botón de cambiar */}
       <Dialog
         open={isImageDialogOpen}
         onClose={() => setIsImageDialogOpen(false)}
         maxWidth="xl"
         fullWidth
       >
-        <DialogContent>
+        <DialogContent sx={{ p: 0 }}>
           <Box
             component="img"
-            src={imageUrl}
+            src={plateData.imageUrl || imageUrl}
             alt={plateData.description}
             sx={{
               width: '100%',
               height: 'auto',
-              maxHeight: '80vh',
+              maxHeight: '90vh',
               objectFit: 'contain'
             }}
           />
@@ -1122,6 +1269,23 @@ const FoodAnalysisResult = React.memo(({
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Añadir el Backdrop de carga */}
+      <Backdrop
+        sx={{ 
+          color: '#fff', 
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2
+        }}
+        open={isLoadingImage}
+      >
+        <CircularProgress color="inherit" />
+        <Typography>
+          Procesando imagen...
+        </Typography>
+      </Backdrop>
     </>
   );
 });
