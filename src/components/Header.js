@@ -95,7 +95,7 @@ function Header({ showMenu = false }) {
             flexGrow: 1,
           }}
         >
-          Esférico
+          Bolita
         </Typography>
       </Box>
 
