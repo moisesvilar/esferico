@@ -6,11 +6,13 @@ import SideMenu from './SideMenu';
 import UserDataForm from './UserDataForm';
 import { auth, db } from '../config/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import WeekScreen from './WeekScreen';
 
 function Header({ showMenu = false }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showUpdateForm, setShowUpdateForm] = useState(false);
   const [userData, setUserData] = useState(null);
+  const [showWeekScreen, setShowWeekScreen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -37,6 +39,9 @@ function Header({ showMenu = false }) {
         break;
       case 'update-data':
         setShowUpdateForm(true);
+        break;
+      case 'week':
+        setShowWeekScreen(true);
         break;
       default:
         break;
@@ -141,6 +146,10 @@ function Header({ showMenu = false }) {
             />
           </Container>
         </Box>
+      )}
+
+      {showWeekScreen && (
+        <WeekScreen onClose={() => setShowWeekScreen(false)} />
       )}
     </>
   );

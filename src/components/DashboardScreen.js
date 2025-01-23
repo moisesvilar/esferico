@@ -120,8 +120,14 @@ function DashboardScreen({ userName }) {
         if (userDoc.exists()) {
           const data = userDoc.data();
           setUserData(data);
+          
           // Guardar la fecha de creación del usuario
-          setUserCreationDate(new Date(auth.currentUser.metadata.creationTime));
+          const creationDate = new Date(auth.currentUser.metadata.creationTime);
+          setUserCreationDate(creationDate);
+          
+          // Guardar en localStorage
+          const dateToStore = creationDate.toISOString();
+          localStorage.setItem('userCreationDate', dateToStore);
         }
       } catch (error) {
         console.error('Error fetching user data:', error);
@@ -140,7 +146,7 @@ function DashboardScreen({ userName }) {
       const end = endOfDay(currentDate).toISOString();
       
       // Fetch meals
-      const mealsQuery = query(
+      const platesQuery = query(
         collection(db, 'plates'),
         where('userId', '==', auth.currentUser.uid),
         where('date', '>=', start),
@@ -156,7 +162,7 @@ function DashboardScreen({ userName }) {
       );
 
       const [mealsSnapshot, activitiesSnapshot] = await Promise.all([
-        getDocs(mealsQuery),
+        getDocs(platesQuery),
         getDocs(activitiesQuery)
       ]);
 
@@ -173,16 +179,16 @@ function DashboardScreen({ userName }) {
       const totalKcalIngested = meals.reduce((sum, meal) => sum + (meal.total_kcal || 0), 0);
       const totalKcalResting = calculateRestingKcal(currentDate, userData.bmr);
       const totalKcalActivity = activities.reduce((sum, activity) => sum + (activity.kcal || 0), 0);
-      
+      const totalBalance = totalKcalIngested - totalKcalResting - totalKcalActivity;
+
       setDailyTotals(prev => ({
         ...prev,
         totalKcalIngested,
         totalKcalResting,
         totalKcalActivity,
-        totalKcalBalance: totalKcalIngested - totalKcalResting - totalKcalActivity
+        totalKcalBalance: totalBalance
       }));
       
-      // Actualizar hasContent si hay comidas O actividades
       setHasContent(meals.length > 0 || activities.length > 0);
     } catch (error) {
       console.error('Error checking meals:', error);

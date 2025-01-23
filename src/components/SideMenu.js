@@ -11,7 +11,8 @@ import {
 import { 
   Home,
   Person,
-  Logout 
+  Logout,
+  CalendarMonth 
 } from '@mui/icons-material';
 import { auth, db } from '../config/firebase';
 import { signOut } from 'firebase/auth';
@@ -24,6 +25,7 @@ function SideMenu({ isOpen, onClose, onMenuItemClick }) {
 
   const menuItems = [
     { id: 'home', text: 'Inicio', icon: <Home /> },
+    { id: 'week', text: 'Tu semana', icon: <CalendarMonth /> },
     { id: 'update-data', text: 'Actualizar datos', icon: <Person /> },
     // Aquí puedes añadir más opciones de menú
   ];

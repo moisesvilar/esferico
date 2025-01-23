@@ -109,7 +109,8 @@ function AddActivityScreen({ open, onClose, currentDate, onActivityAdded }) {
       };
 
       // Guardar en Firestore
-      await addDoc(collection(db, 'activities'), activityDoc);
+      const activitiesRef = collection(db, 'activities');
+      await addDoc(activitiesRef, activityDoc);
       
       // Notificar que se ha añadido una actividad para actualizar la lista y los totales
       onActivityAdded();
@@ -143,7 +144,8 @@ function AddActivityScreen({ open, onClose, currentDate, onActivityAdded }) {
         createdAt: serverTimestamp()
       };
 
-      await addDoc(collection(db, 'activities'), activityDoc);
+      const activitiesRef = collection(db, 'activities');
+      await addDoc(activitiesRef, activityDoc);
       
       onActivityAdded();
       setActivityName('');
