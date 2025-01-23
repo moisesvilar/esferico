@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Box, Button, FormControl, InputLabel, MenuItem, Select, TextField, Typography, Divider } from '@mui/material';
+import { Box, Button, FormControl, InputLabel, MenuItem, Select, TextField, Typography, Divider, Stack } from '@mui/material';
 
-function UserDataForm({ onSubmit, isLoading }) {
+function UserDataForm({ onSubmit, initialData, onCancel, isLoading }) {
   const [formData, setFormData] = useState({
     sexo: '',
     edad: '',
@@ -9,6 +9,18 @@ function UserDataForm({ onSubmit, isLoading }) {
     altura: ''
   });
   const [bmr, setBmr] = useState(0);
+
+  // Cargar datos iniciales cuando estén disponibles
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        sexo: initialData.sexo || '',
+        edad: initialData.edad || '',
+        peso: initialData.peso || '',
+        altura: initialData.altura || ''
+      });
+    }
+  }, [initialData]);
 
   // Función para calcular BMR
   const calculateBMR = (weight, height, age, sex) => {
@@ -46,100 +58,114 @@ function UserDataForm({ onSubmit, isLoading }) {
   };
 
   return (
-    <Box component="form" onSubmit={handleSubmit} sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <Typography variant="h6" gutterBottom>
-        Para calcular tu metabolismo basal, necesitamos algunos datos:
-      </Typography>
+    <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }}>
+      <Stack spacing={3}>
+        <Typography variant="h6" gutterBottom>
+          Para calcular tu metabolismo basal, necesitamos algunos datos:
+        </Typography>
 
-      <FormControl fullWidth required>
-        <InputLabel>Sexo</InputLabel>
-        <Select
-          name="sexo"
-          value={formData.sexo}
-          label="Sexo"
+        <FormControl fullWidth required>
+          <InputLabel>Sexo</InputLabel>
+          <Select
+            name="sexo"
+            value={formData.sexo}
+            label="Sexo"
+            onChange={handleChange}
+          >
+            <MenuItem value="hombre">Hombre</MenuItem>
+            <MenuItem value="mujer">Mujer</MenuItem>
+          </Select>
+        </FormControl>
+
+        <TextField
+          required
+          type="number"
+          label="Edad"
+          name="edad"
+          value={formData.edad}
           onChange={handleChange}
-        >
-          <MenuItem value="hombre">Hombre</MenuItem>
-          <MenuItem value="mujer">Mujer</MenuItem>
-        </Select>
-      </FormControl>
+          slotProps={{
+            input: {
+              min: 0, 
+              max: 120,
+              step: "1"
+            }
+          }}
+          error={formData.edad !== '' && (formData.edad < 0 || formData.edad > 120)}
+          helperText={formData.edad !== '' && (formData.edad < 0 || formData.edad > 120) ? "La edad debe estar entre 0 y 120" : ""}
+        />
 
-      <TextField
-        required
-        type="number"
-        label="Edad"
-        name="edad"
-        value={formData.edad}
-        onChange={handleChange}
-        slotProps={{
-          input: {
-            min: 0, 
-            max: 120,
-            step: "1"
-          }
-        }}
-        error={formData.edad !== '' && (formData.edad < 0 || formData.edad > 120)}
-        helperText={formData.edad !== '' && (formData.edad < 0 || formData.edad > 120) ? "La edad debe estar entre 0 y 120" : ""}
-      />
+        <TextField
+          required
+          type="number"
+          label="Peso (kg)"
+          name="peso"
+          value={formData.peso}
+          onChange={handleChange}
+          slotProps={{
+            input: {
+              min: 0, 
+              max: 500,
+              step: "0.1"
+            }
+          }}
+          error={formData.peso !== '' && (formData.peso < 0 || formData.peso > 500)}
+          helperText={formData.peso !== '' && (formData.peso < 0 || formData.peso > 500) ? "El peso debe estar entre 0 y 500 kg" : ""}
+        />
 
-      <TextField
-        required
-        type="number"
-        label="Peso (kg)"
-        name="peso"
-        value={formData.peso}
-        onChange={handleChange}
-        slotProps={{
-          input: {
-            min: 0, 
-            max: 500,
-            step: "0.1"
-          }
-        }}
-        error={formData.peso !== '' && (formData.peso < 0 || formData.peso > 500)}
-        helperText={formData.peso !== '' && (formData.peso < 0 || formData.peso > 500) ? "El peso debe estar entre 0 y 500 kg" : ""}
-      />
+        <TextField
+          required
+          type="number"
+          label="Altura (cm)"
+          name="altura"
+          value={formData.altura}
+          onChange={handleChange}
+          slotProps={{
+            input: {
+              min: 0, 
+              max: 300,
+              step: "1"
+            }
+          }}
+          error={formData.altura !== '' && (formData.altura < 0 || formData.altura > 300)}
+          helperText={formData.altura !== '' && (formData.altura < 0 || formData.altura > 300) ? "La altura debe estar entre 0 y 300 cm" : ""}
+        />
 
-      <TextField
-        required
-        type="number"
-        label="Altura (cm)"
-        name="altura"
-        value={formData.altura}
-        onChange={handleChange}
-        slotProps={{
-          input: {
-            min: 0, 
-            max: 300,
-            step: "1"
-          }
-        }}
-        error={formData.altura !== '' && (formData.altura < 0 || formData.altura > 300)}
-        helperText={formData.altura !== '' && (formData.altura < 0 || formData.altura > 300) ? "La altura debe estar entre 0 y 300 cm" : ""}
-      />
+        <Divider sx={{ my: 2 }} />
+        
+        <Box sx={{ bgcolor: '#f5f5f5', p: 2, borderRadius: 1 }}>
+          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+            Metabolismo Basal (BMR)
+          </Typography>
+          <Typography variant="h6">
+            {bmr} kcal/día
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Calorías que tu cuerpo consume en reposo
+          </Typography>
+        </Box>
 
-      <Divider sx={{ my: 2 }} />
-      
-      <Box sx={{ bgcolor: '#f5f5f5', p: 2, borderRadius: 1 }}>
-        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-          Metabolismo Basal (BMR)
-        </Typography>
-        <Typography variant="h6">
-          {bmr} kcal/día
-        </Typography>
-        <Typography variant="caption" color="text.secondary">
-          Calorías que tu cuerpo consume en reposo
-        </Typography>
-      </Box>
-
-      <Button
-        type="submit"
-        variant="contained"
-        disabled={isLoading}
-        sx={{ mt: 2 }}
-      >
-        {isLoading ? 'Guardando...' : 'Guardar datos'}
-      </Button>
+        <Stack direction="row" spacing={2} sx={{ mt: 4 }}>
+          {onCancel && (
+            <Button
+              fullWidth
+              variant="outlined"
+              onClick={onCancel}
+              disabled={isLoading}
+            >
+              Cancelar
+            </Button>
+          )}
+          <Button
+            type="submit"
+            fullWidth
+            variant="contained"
+            disabled={isLoading}
+          >
+            {isLoading ? 'Guardando...' : 'Guardar'}
+          </Button>
+        </Stack>
+      </Stack>
     </Box>
   );
 }

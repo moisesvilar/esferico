@@ -8,6 +8,7 @@ import { signInWithPopup, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useState, useEffect } from 'react';
 import { ThemeProvider } from '@mui/material/styles';
+import { BrowserRouter } from 'react-router-dom';
 import theme from './theme';
 
 function App() {
@@ -109,87 +110,91 @@ function App() {
 
   if (user) {
     return (
-      <ThemeProvider theme={theme}>
-        <Box sx={{ minHeight: '100vh', width: '100%', overflow: 'hidden' }}>
-          <Header showMenu={true} />
-          {userData ? (
-            <DashboardScreen userName={user.displayName} />
-          ) : (
-            <Container maxWidth="md" sx={{ mt: 4 }}>
-              <Paper elevation={3} sx={{ p: 3 }}>
-                <UserDataForm onSubmit={handleSubmitUserData} isLoading={isLoading} />
-              </Paper>
-            </Container>
-          )}
-        </Box>
-      </ThemeProvider>
+      <BrowserRouter>
+        <ThemeProvider theme={theme}>
+          <Box sx={{ minHeight: '100vh', width: '100%', overflow: 'hidden' }}>
+            <Header showMenu={true} />
+            {userData ? (
+              <DashboardScreen userName={user.displayName} />
+            ) : (
+              <Container maxWidth="md" sx={{ mt: 4 }}>
+                <Paper elevation={3} sx={{ p: 3 }}>
+                  <UserDataForm onSubmit={handleSubmitUserData} isLoading={isLoading} />
+                </Paper>
+              </Container>
+            )}
+          </Box>
+        </ThemeProvider>
+      </BrowserRouter>
     );
   }
 
   return (
-    <ThemeProvider theme={theme}>
-      <Box sx={{ minHeight: '100vh', width: '100%', overflow: 'hidden' }}>
-        <Header showMenu={false} />
-        <Container 
-          maxWidth="sm" 
-          sx={{ 
-            px: { xs: 2, sm: 3 },
-            height: 'calc(100vh - 72px)',
-          }}
-        >
-          <Box
-            sx={{
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
+    <BrowserRouter>
+      <ThemeProvider theme={theme}>
+        <Box sx={{ minHeight: '100vh', width: '100%', overflow: 'hidden' }}>
+          <Header showMenu={false} />
+          <Container 
+            maxWidth="sm" 
+            sx={{ 
+              px: { xs: 2, sm: 3 },
+              height: 'calc(100vh - 72px)',
             }}
           >
-            <Paper
-              elevation={3}
+            <Box
               sx={{
-                p: { xs: 2, sm: 4 },
-                width: '100%',
-                maxWidth: '100%',
+                height: '100%',
                 display: 'flex',
-                flexDirection: 'column',
-                gap: 2,
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
             >
-              <Typography variant="h4" component="h1" align="center" gutterBottom>
-                Bienvenido
-              </Typography>
-              
-              <Typography variant="body1" align="center" color="text.secondary" sx={{ mb: 3 }}>
-                Inicia sesión o crea una cuenta para continuar
-              </Typography>
-
-              {error && (
-                <Typography color="error" align="center" sx={{ mb: 2 }}>
-                  {error}
-                </Typography>
-              )}
-
-              <Button
-                fullWidth
-                variant="contained"
-                startIcon={<GoogleIcon />}
-                onClick={handleLogin}
-                sx={{ 
-                  py: 1.5,
-                  bgcolor: '#4285F4',
-                  '&:hover': { 
-                    bgcolor: '#357ABD'
-                  }
+              <Paper
+                elevation={3}
+                sx={{
+                  p: { xs: 2, sm: 4 },
+                  width: '100%',
+                  maxWidth: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 2,
                 }}
               >
-                Continuar con Google
-              </Button>
-            </Paper>
-          </Box>
-        </Container>
-      </Box>
-    </ThemeProvider>
+                <Typography variant="h4" component="h1" align="center" gutterBottom>
+                  Bienvenido
+                </Typography>
+                
+                <Typography variant="body1" align="center" color="text.secondary" sx={{ mb: 3 }}>
+                  Inicia sesión o crea una cuenta para continuar
+                </Typography>
+
+                {error && (
+                  <Typography color="error" align="center" sx={{ mb: 2 }}>
+                    {error}
+                  </Typography>
+                )}
+
+                <Button
+                  fullWidth
+                  variant="contained"
+                  startIcon={<GoogleIcon />}
+                  onClick={handleLogin}
+                  sx={{ 
+                    py: 1.5,
+                    bgcolor: '#4285F4',
+                    '&:hover': { 
+                      bgcolor: '#357ABD'
+                    }
+                  }}
+                >
+                  Continuar con Google
+                </Button>
+              </Paper>
+            </Box>
+          </Container>
+        </Box>
+      </ThemeProvider>
+    </BrowserRouter>
   );
 }
 

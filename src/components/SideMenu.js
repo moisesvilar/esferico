@@ -3,22 +3,30 @@ import {
   Drawer, 
   List, 
   ListItem, 
+  ListItemButton, 
   ListItemIcon, 
   ListItemText,
   Divider 
 } from '@mui/material';
 import { 
-  Logout, 
-  Person 
+  Home,
+  Person,
+  Logout 
 } from '@mui/icons-material';
 import { auth, db } from '../config/firebase';
 import { signOut } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import UpdateUserDataDialog from './UpdateUserDataDialog';
 
-function SideMenu({ isOpen, onClose }) {
+function SideMenu({ isOpen, onClose, onMenuItemClick }) {
   const [isUpdateDialogOpen, setIsUpdateDialogOpen] = useState(false);
   const [userData, setUserData] = useState(null);
+
+  const menuItems = [
+    { id: 'home', text: 'Inicio', icon: <Home /> },
+    { id: 'update-data', text: 'Actualizar datos', icon: <Person /> },
+    // Aquí puedes añadir más opciones de menú
+  ];
 
   // Cargar datos cuando se abre el diálogo
   useEffect(() => {
@@ -47,10 +55,6 @@ function SideMenu({ isOpen, onClose }) {
     }
   };
 
-  const handleUpdateDataClick = () => {
-    setIsUpdateDialogOpen(true);
-  };
-
   const handleUpdateDialogClose = (wasUpdated) => {
     setIsUpdateDialogOpen(false);
     if (wasUpdated) {
@@ -61,22 +65,37 @@ function SideMenu({ isOpen, onClose }) {
 
   return (
     <>
-      <Drawer anchor="left" open={isOpen} onClose={onClose}>
+      <Drawer
+        anchor="left"
+        open={isOpen}
+        onClose={onClose}
+      >
         <List sx={{ width: 250 }}>
-          <ListItem onClick={handleUpdateDataClick} sx={{ cursor: 'pointer' }}>
-            <ListItemIcon>
-              <Person />
-            </ListItemIcon>
-            <ListItemText primary="Actualizar datos" />
-          </ListItem>
+          {menuItems.map((item) => (
+            <ListItem key={item.id} disablePadding>
+              <ListItemButton 
+                onClick={() => {
+                  onMenuItemClick(item.id);
+                  onClose();
+                }}
+              >
+                <ListItemIcon>
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText primary={item.text} />
+              </ListItemButton>
+            </ListItem>
+          ))}
           
-          <Divider />
+          <Divider sx={{ my: 1 }} />
           
-          <ListItem onClick={handleLogout} sx={{ cursor: 'pointer' }}>
-            <ListItemIcon>
-              <Logout />
-            </ListItemIcon>
-            <ListItemText primary="Cerrar sesión" />
+          <ListItem disablePadding>
+            <ListItemButton onClick={handleLogout}>
+              <ListItemIcon>
+                <Logout />
+              </ListItemIcon>
+              <ListItemText primary="Cerrar sesión" />
+            </ListItemButton>
           </ListItem>
         </List>
       </Drawer>

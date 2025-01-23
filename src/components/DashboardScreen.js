@@ -1,4 +1,4 @@
-import { Box, Button, Container, Paper, Typography, IconButton } from '@mui/material';
+import { Box, Button, Container, Paper, Typography, IconButton, Stack } from '@mui/material';
 import { ChevronLeft, ChevronRight, Add } from '@mui/icons-material';
 import { useState, useEffect, useCallback } from 'react';
 import AddFoodScreen from './AddFoodScreen';
@@ -315,12 +315,18 @@ function DashboardScreen({ userName }) {
           bgcolor: '#f8f8f8'
         }}
       >
-        <Typography variant="h4" color="primary" sx={{ fontWeight: 'bold' }}>
-          {dailyTotals.totalKcalBalance} kcal
-        </Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-          éste es tu balance calórico total para este día
-        </Typography>
+        <Stack alignItems="center">
+          <Typography 
+            variant="h4" 
+            sx={{ 
+              color: dailyTotals.totalKcalBalance <= 0 ? 'success.main' : 'warning.main',
+              fontWeight: 'bold'
+            }}
+          >
+            {dailyTotals.totalKcalBalance} kcal
+          </Typography>
+          <Typography variant="caption">balance calórico</Typography>
+        </Stack>
       </Paper>
 
       {/* Indicadores secundarios */}
