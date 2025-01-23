@@ -16,6 +16,7 @@ import {
   Button,
   TextField,
   InputAdornment,
+  ListItemButton,
 } from '@mui/material';
 import { Close, Star, ChevronRight, Search } from '@mui/icons-material';
 import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
@@ -127,6 +128,7 @@ function FavoriteFoodsScreen({ onClose }) {
         {filteredFavorites.map((food) => (
           <ListItem
             key={food.id}
+            disablePadding
             secondaryAction={
               <Stack direction="row" spacing={1} alignItems="center">
                 <IconButton 
@@ -145,21 +147,23 @@ function FavoriteFoodsScreen({ onClose }) {
               </Stack>
             }
           >
-            <ListItemAvatar>
-              <Avatar 
-                src={food.imageUrl} 
-                variant="rounded"
-                sx={{ width: 56, height: 56, mr: 2 }}
+            <ListItemButton>
+              <ListItemAvatar>
+                <Avatar 
+                  src={food.imageUrl} 
+                  variant="rounded"
+                  sx={{ width: 56, height: 56, mr: 2 }}
+                />
+              </ListItemAvatar>
+              <ListItemText
+                primary={food.description}
+                secondary={
+                  <Typography variant="body2" color="text.secondary">
+                    {food.total_weight}g · {food.total_kcal} kcal
+                  </Typography>
+                }
               />
-            </ListItemAvatar>
-            <ListItemText
-              primary={food.description}
-              secondary={
-                <Typography variant="body2" color="text.secondary">
-                  {food.total_weight}g · {food.total_kcal} kcal
-                </Typography>
-              }
-            />
+            </ListItemButton>
           </ListItem>
         ))}
         
@@ -175,13 +179,15 @@ function FavoriteFoodsScreen({ onClose }) {
       </List>
 
       {/* Diálogo de detalle */}
-      {selectedFood && (
-        <Dialog 
-          open={true} 
-          onClose={() => setSelectedFood(null)}
-          fullWidth
-          maxWidth="md"
-        >
+      <Dialog 
+        open={!!selectedFood} 
+        onClose={() => setSelectedFood(null)}
+        fullWidth
+        maxWidth="md"
+        keepMounted={false}
+        disablePortal={false}
+      >
+        {selectedFood && (
           <FoodAnalysisResult
             analysisData={selectedFood}
             onCancel={() => setSelectedFood(null)}
@@ -195,13 +201,15 @@ function FavoriteFoodsScreen({ onClose }) {
             currentDate={new Date()}
             userCreationDate={selectedFood.createdAt?.toDate?.() || new Date()}
           />
-        </Dialog>
-      )}
+        )}
+      </Dialog>
 
       {/* Diálogo de confirmación */}
       <Dialog
         open={confirmDialog.open}
         onClose={() => setConfirmDialog({ open: false, food: null })}
+        keepMounted={false}
+        disablePortal={false}
       >
         <DialogTitle>
           Quitar de favoritos
