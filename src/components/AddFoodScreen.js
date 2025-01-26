@@ -91,7 +91,22 @@ function AddFoodScreen({ open, onClose, onImageAnalyzed, currentDate }) {
   }, [open]);
 
   const handleImageSelected = async (file) => {
-    if (!file) return;
+    if (!file) {
+      setError('No se ha seleccionado ninguna imagen');
+      return;
+    }
+
+    // Validar el tipo y tamaño del archivo
+    if (!file.type.startsWith('image/')) {
+      setError('Por favor selecciona un archivo de imagen válido');
+      return;
+    }
+
+    const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+    if (file.size > MAX_SIZE) {
+      setError('La imagen es demasiado grande. Máximo 10MB');
+      return;
+    }
 
     try {
       setIsUploading(true);
@@ -169,7 +184,9 @@ function AddFoodScreen({ open, onClose, onImageAnalyzed, currentDate }) {
 
     } catch (error) {
       console.error('Error processing image:', error);
-      setError('Error al procesar la imagen. Por favor, inténtalo de nuevo.');
+      setError(`Error al procesar la imagen: ${error.message}`);
+      // Volver al paso de selección de foto
+      setStep('photo');
     } finally {
       setIsUploading(false);
     }
@@ -193,21 +210,47 @@ function AddFoodScreen({ open, onClose, onImageAnalyzed, currentDate }) {
       input.accept = 'image/*';
       input.capture = 'environment';
       
-      input.onchange = (e) => {
+      // Asegurarnos que el evento change se dispara
+      const handleChange = (e) => {
         if (e.target.files && e.target.files[0]) {
           handleImageSelected(e.target.files[0]);
+        } else {
+          setError('No se ha seleccionado ninguna imagen');
         }
+        input.removeEventListener('change', handleChange);
       };
       
+      input.addEventListener('change', handleChange);
       input.click();
     } catch (error) {
       console.error('Error accessing camera:', error);
+      setError('Error al acceder a la cámara. Por favor, inténtalo de nuevo');
     }
   };
 
   const handleGalleryClick = () => {
-    const input = document.querySelector('input[type="file"]');
-    if (input) input.click();
+    try {
+      const input = document.querySelector('input[type="file"]');
+      if (!input) {
+        throw new Error('No se encontró el input de archivo');
+      }
+
+      // Asegurarnos que el evento change se dispara
+      const handleChange = (e) => {
+        if (e.target.files && e.target.files[0]) {
+          handleImageSelected(e.target.files[0]);
+        } else {
+          setError('No se ha seleccionado ninguna imagen');
+        }
+        input.removeEventListener('change', handleChange);
+      };
+
+      input.addEventListener('change', handleChange);
+      input.click();
+    } catch (error) {
+      console.error('Error accessing gallery:', error);
+      setError('Error al acceder a la galería. Por favor, inténtalo de nuevo');
+    }
   };
 
   const handlePhotoClick = () => {
