@@ -157,8 +157,15 @@ function AddFoodScreen({ open, onClose, onImageAnalyzed, currentDate }) {
 
       const analysisResult = JSON.parse(cleanJson);
 
+      // Añadir la URL de la imagen al resultado del análisis
+      const resultWithImage = {
+        ...analysisResult,
+        imageUrl,
+        hasImage: true
+      };
+
       // Notificar el resultado
-      onImageAnalyzed(file, analysisResult);
+      onImageAnalyzed(file, resultWithImage);
 
     } catch (error) {
       console.error('Error processing image:', error);
