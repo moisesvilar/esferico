@@ -206,17 +206,8 @@ function AddFoodScreen({ open, onClose, onImageAnalyzed, currentDate }) {
   };
 
   const handleGalleryClick = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    
-    input.onchange = (e) => {
-      if (e.target.files && e.target.files[0]) {
-        handleImageSelected(e.target.files[0]);
-      }
-    };
-    
-    input.click();
+    const input = document.querySelector('input[type="file"]');
+    if (input) input.click();
   };
 
   const handlePhotoClick = () => {
@@ -360,6 +351,7 @@ function AddFoodScreen({ open, onClose, onImageAnalyzed, currentDate }) {
             <DialogContent>
               <Stack spacing={2}>
                 <Button
+                  data-testid="take-photo-button"
                   variant="contained"
                   startIcon={<PhotoCamera />}
                   onClick={handleCameraClick}
@@ -368,6 +360,7 @@ function AddFoodScreen({ open, onClose, onImageAnalyzed, currentDate }) {
                   Sacar una foto
                 </Button>
                 <Button
+                  data-testid="gallery-button"
                   variant="outlined"
                   startIcon={<PhotoLibrary />}
                   onClick={handleGalleryClick}
@@ -408,14 +401,17 @@ function AddFoodScreen({ open, onClose, onImageAnalyzed, currentDate }) {
                 )}
 
                 <Button
+                  data-testid="photo-button"
                   variant="contained"
                   startIcon={<PhotoCamera />}
                   onClick={handlePhotoClick}
                   fullWidth
                 >
-                  Analizar una foto
+                  Sacar una foto
                 </Button>
+
                 <Button
+                  data-testid="manual-input-button"
                   variant="outlined"
                   startIcon={<Edit />}
                   onClick={handleManualDialogOpen}
@@ -442,6 +438,13 @@ function AddFoodScreen({ open, onClose, onImageAnalyzed, currentDate }) {
       fullWidth
       maxWidth="md"
     >
+      <input
+        type="file"
+        accept="image/*"
+        onChange={(e) => handleImageSelected(e.target.files[0])}
+        style={{ display: 'none' }}
+        data-testid="file-input"
+      />
       {renderContent()}
       <Dialog
         open={isManualDialogOpen}

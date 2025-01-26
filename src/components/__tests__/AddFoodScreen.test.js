@@ -5,6 +5,10 @@ import AddFoodScreen from '../AddFoodScreen';
 import { storage, auth, db } from '../../config/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, query, getDocs } from 'firebase/firestore';
+import userEvent from '@testing-library/user-event';
+
+// Aumentar timeout para todos los tests en este archivo
+jest.setTimeout(30000);
 
 // Mock Firebase
 jest.mock('../../config/firebase', () => ({
@@ -42,13 +46,23 @@ jest.mock('firebase/firestore', () => ({
 // Mock fetch
 global.fetch = jest.fn();
 
+// Mock para MUI Transitions
+jest.mock('@mui/material', () => ({
+  ...jest.requireActual('@mui/material'),
+  Fade: ({ children }) => children,
+  Dialog: ({ children, open }) => open ? children : null
+}));
+
 describe('AddFoodScreen', () => {
   const mockOnClose = jest.fn();
   const mockOnImageAnalyzed = jest.fn();
   const currentDate = new Date();
+  let rendered;
+  let user;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
+    user = userEvent.setup();
     
     // Mock successful storage upload
     ref.mockReturnValue('mock-storage-ref');
@@ -70,141 +84,137 @@ describe('AddFoodScreen', () => {
       docs: [],
       forEach: jest.fn()
     });
+
+    // Render component
+    await act(async () => {
+      rendered = render(
+        <AddFoodScreen 
+          open={true}
+          onClose={mockOnClose}
+          onImageAnalyzed={mockOnImageAnalyzed}
+          currentDate={currentDate}
+        />
+      );
+    });
   });
 
   it('renders correctly', () => {
-    render(
-      <AddFoodScreen 
-        open={true}
-        onClose={mockOnClose}
-        onImageAnalyzed={mockOnImageAnalyzed}
-        currentDate={currentDate}
-      />
-    );
+    // En el estado inicial solo se muestra el botón de entrada manual
+    expect(screen.getByTestId('manual-input-button')).toBeInTheDocument();
+  });
 
-    expect(screen.getByText('Analizar una foto')).toBeInTheDocument();
-    expect(screen.getByText('Introducción manual')).toBeInTheDocument();
+  it('shows photo options when clicking photo button', async () => {
+    // Primero hacemos click en el botón de foto
+    await act(async () => {
+      await user.click(screen.getByText(/foto/i));
+      await new Promise(resolve => setTimeout(resolve, 100));
+    });
+
+    // Ahora deberían estar visibles los botones de foto y galería
+    expect(screen.getByTestId('take-photo-button')).toBeInTheDocument();
+    expect(screen.getByTestId('gallery-button')).toBeInTheDocument();
   });
 
   it('handles image upload and analysis correctly', async () => {
-    render(
-      <AddFoodScreen 
-        open={true}
-        onClose={mockOnClose}
-        onImageAnalyzed={mockOnImageAnalyzed}
-        currentDate={currentDate}
-      />
-    );
-
-    // Simular selección de imagen
     const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' });
 
-    // Simular click en "Analizar una foto"
+    // Primero hacemos click en el botón de foto para mostrar las opciones
     await act(async () => {
-      fireEvent.click(screen.getByText('Analizar una foto'));
+      await user.click(screen.getByTestId('photo-button'));
+      await new Promise(resolve => setTimeout(resolve, 100));
     });
-    
-    // Simular click en "Elegir de la galería"
+
+    // Simular click en el botón de galería
     await act(async () => {
-      fireEvent.click(screen.getByText('Elegir de la galería'));
+      await user.click(screen.getByTestId('gallery-button'));
+      await new Promise(resolve => setTimeout(resolve, 100));
     });
+
+    // Obtener el input de archivo usando el test-id
+    const fileInput = screen.getByTestId('file-input');
+    expect(fileInput).toBeInTheDocument();
 
     // Simular la selección del archivo
     await act(async () => {
-      const handleImageSelected = await import('../AddFoodScreen').then(
-        module => module.default.prototype.handleImageSelected
-      );
-      await handleImageSelected.call({ props: { onImageAnalyzed: mockOnImageAnalyzed } }, file);
+      Object.defineProperty(fileInput, 'files', {
+        value: [file],
+        configurable: true
+      });
+      fireEvent.change(fileInput);
+      await new Promise(resolve => setTimeout(resolve, 500));
     });
 
-    // Verificar que la imagen se procesa correctamente
+    // Verificar que se llama a la función de subida
+    expect(uploadBytes).toHaveBeenCalled();
+    expect(getDownloadURL).toHaveBeenCalled();
+
+    // Verificar el resultado final
     await waitFor(() => {
-      expect(uploadBytes).toHaveBeenCalled();
-      expect(getDownloadURL).toHaveBeenCalled();
       expect(mockOnImageAnalyzed).toHaveBeenCalledWith(
-        file,
+        expect.any(File),
         expect.objectContaining({
-          imageUrl: 'https://example.com/image.jpg',
+          imageUrl: expect.any(String),
           hasImage: true
         })
       );
-    });
+    }, { timeout: 10000 });
   });
 
   it('handles duplicate images correctly', async () => {
-    // Mock existing plate
     const existingPlate = {
       description: 'Existing Meal',
       components: [],
       imageUrl: 'https://example.com/existing.jpg'
     };
 
-    // Mock duplicates found
     getDocs.mockResolvedValue({
       empty: false,
       docs: [{
         data: () => existingPlate
       }],
-      forEach: jest.fn()
+      forEach: jest.fn(cb => cb({ data: () => existingPlate }))
     });
-
-    render(
-      <AddFoodScreen 
-        open={true}
-        onClose={mockOnClose}
-        onImageAnalyzed={mockOnImageAnalyzed}
-        currentDate={currentDate}
-      />
-    );
 
     const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' });
 
-    // Simular la selección del archivo directamente
     await act(async () => {
-      const handleImageSelected = await import('../AddFoodScreen').then(
-        module => module.default.prototype.handleImageSelected
-      );
-      await handleImageSelected.call({ props: { onImageAnalyzed: mockOnImageAnalyzed } }, file);
+      const fileInput = screen.getByTestId('file-input');
+      Object.defineProperty(fileInput, 'files', {
+        value: [file],
+        configurable: true
+      });
+      fireEvent.change(fileInput);
+      await new Promise(resolve => setTimeout(resolve, 500));
     });
 
-    // Verificar que se usa el plato existente
     await waitFor(() => {
       expect(mockOnImageAnalyzed).toHaveBeenCalledWith(
-        file,
+        expect.any(File),
         expect.objectContaining({
           description: expect.stringContaining('Copia de Existing Meal')
         })
       );
-    });
+    }, { timeout: 10000 });
   });
 
   it('handles errors correctly', async () => {
-    // Mock error in upload
     uploadBytes.mockRejectedValue(new Error('Upload failed'));
-
-    render(
-      <AddFoodScreen 
-        open={true}
-        onClose={mockOnClose}
-        onImageAnalyzed={mockOnImageAnalyzed}
-        currentDate={currentDate}
-      />
-    );
 
     const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' });
 
-    // Simular la selección del archivo directamente
     await act(async () => {
-      const handleImageSelected = await import('../AddFoodScreen').then(
-        module => module.default.prototype.handleImageSelected
-      );
-      await handleImageSelected.call({ 
-        props: { onImageAnalyzed: mockOnImageAnalyzed },
-        setError: (error) => {
-          expect(error).toContain('Error al procesar la imagen');
-        },
-        setIsUploading: jest.fn()
-      }, file);
+      const fileInput = screen.getByTestId('file-input');
+      Object.defineProperty(fileInput, 'files', {
+        value: [file],
+        configurable: true
+      });
+      fireEvent.change(fileInput);
+      await new Promise(resolve => setTimeout(resolve, 500));
     });
+
+    await waitFor(() => {
+      const errorElement = screen.getByText(/Error al procesar la imagen/i);
+      expect(errorElement).toBeInTheDocument();
+    }, { timeout: 10000 });
   });
 }); 

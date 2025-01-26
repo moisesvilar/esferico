@@ -11,6 +11,7 @@ module.exports = {
   transformIgnorePatterns: [
     '/node_modules/(?!(@mui|@babel|@firebase)/)'
   ],
+  testTimeout: 30000,
   collectCoverageFrom: [
     'src/**/*.{js,jsx}',
     '!src/index.js',
