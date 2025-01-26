@@ -499,39 +499,40 @@ const FoodAnalysisResult = React.memo(({
       let thumbnailUrl = null;
       let imageHash = null;
       let hasImage = false;
+      let imageId = null;  // Añadir imageId
 
       // Si hay una imagen pendiente de subir
       if (selectedImage) {
         hasImage = true;
         imageHash = await calculateImageHash(selectedImage);
         
-        // Subir versión grande y pequeña por separado
+        const timestamp = Date.now();
+        imageId = timestamp.toString();  // Guardar el ID
+        
         const [largeImage, thumbImage] = await Promise.all([
           resizeImage(selectedImage, 1024),
           resizeImage(selectedImage, 100)
         ]);
 
-        // Crear referencias únicas para cada versión
-        const timestamp = Date.now();
-        const largeStorageRef = ref(storage, `plates/${auth.currentUser.uid}/${timestamp}_large.jpg`);
-        const thumbStorageRef = ref(storage, `plates/${auth.currentUser.uid}/${timestamp}_thumb.jpg`);
+        const largeStorageRef = ref(storage, `plates/${auth.currentUser.uid}/${imageId}_large.jpg`);
+        const thumbStorageRef = ref(storage, `plates/${auth.currentUser.uid}/${imageId}_thumb.jpg`);
 
-        // Subir ambas versiones
         const [largeSnapshot, thumbSnapshot] = await Promise.all([
           uploadBytes(largeStorageRef, largeImage),
           uploadBytes(thumbStorageRef, thumbImage)
         ]);
 
-        // Obtener URLs
         [finalImageUrl, thumbnailUrl] = await Promise.all([
           getDownloadURL(largeSnapshot.ref),
           getDownloadURL(thumbSnapshot.ref)
         ]);
-      } else if (imageUrl) {
-        // Mantener las URLs existentes si hay
+      } else if (plateData.imageUrl) {
+        // Mantener los datos de imagen existentes
         hasImage = true;
-        finalImageUrl = imageUrl;
-        thumbnailUrl = imageUrl.replace('_large.jpg', '_thumb.jpg');
+        finalImageUrl = plateData.imageUrl;
+        thumbnailUrl = plateData.thumbnailUrl;
+        imageHash = plateData.imageHash;
+        imageId = plateData.imageId;  // Mantener el imageId existente
       }
 
       // Crear fecha de guardado de forma segura
@@ -555,7 +556,7 @@ const FoodAnalysisResult = React.memo(({
       }
 
       const plateDoc = {
-        date: saveDate.toISOString(),  // Esto guardará la fecha correcta en UTC
+        date: saveDate.toISOString(),
         description: plateData.description.trim(),
         total_kcal: Number(plateData.total_kcal) || 0,
         total_weight: Number(plateData.total_weight) || 0,
@@ -575,7 +576,8 @@ const FoodAnalysisResult = React.memo(({
         hasImage,
         imageUrl: finalImageUrl,
         thumbnailUrl: thumbnailUrl,
-        imageHash
+        imageHash,
+        imageId  // Incluir el imageId en el documento
       };
 
       if (isEditing) {
